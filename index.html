@@ -3,452 +3,413 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PHONK ENGINE V6 - RAGNAROK UNLEASHED</title>
+    <title>PHONK ENGINE V7 - FM SYNTHESIS & DYNAMIC GENERATOR</title>
     <style>
-        :root { --bg: #000000; --accent: #ff001e; --gold: #ffaa00; --panel: #07070a; }
-        body { background: var(--bg); color: #fff; font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
-        .hub { width: 92%; max-width: 720px; background: var(--panel); border: 2px solid #14141c; padding: 30px; box-shadow: 0 0 70px rgba(255, 0, 30, 0.2); border-radius: 4px; text-align: center; }
-        h1 { color: var(--accent); font-size: 28px; font-weight: 900; letter-spacing: 6px; margin: 0; text-shadow: 0 0 20px rgba(255, 0, 30, 0.7); }
-        .status-sub { color: #555; font-size: 11px; letter-spacing: 3px; margin: 5px 0 25px 0; text-transform: uppercase; }
+        :root { --bg: #050505; --neon: #8a2be2; --text: #e0e0e0; --panel: #0d0d12; }
+        body { background: var(--bg); color: var(--text); font-family: 'Consolas', monospace; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+        .container { width: 90%; max-width: 750px; background: var(--panel); border: 1px solid #1f1f2e; padding: 35px; border-radius: 8px; box-shadow: 0 0 50px rgba(138, 43, 226, 0.15); text-align: center; }
+        h1 { color: var(--neon); font-size: 26px; font-weight: 900; letter-spacing: 4px; margin: 0; text-shadow: 0 0 15px rgba(138, 43, 226, 0.6); }
+        .desc { color: #666; font-size: 11px; margin: 8px 0 30px 0; letter-spacing: 2px; text-transform: uppercase; }
         
-        button { width: 100%; background: transparent; color: var(--accent); border: 2px solid var(--accent); padding: 25px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 3px; transition: 0.2s; box-shadow: inset 0 0 20px rgba(255, 0, 30, 0.1); }
-        button:hover:not(:disabled) { background: var(--accent); color: #000; box-shadow: 0 0 35px var(--accent); }
-        button:disabled { border-color: #222; color: #444; cursor: not-allowed; box-shadow: none; }
+        button { width: 100%; background: #000; color: var(--neon); border: 2px solid var(--neon); padding: 20px; font-size: 17px; font-weight: bold; cursor: pointer; text-transform: uppercase; letter-spacing: 3px; transition: 0.3s; border-radius: 4px; }
+        button:hover:not(:disabled) { background: var(--neon); color: #000; box-shadow: 0 0 30px var(--neon); }
+        button:disabled { border-color: #333; color: #555; cursor: not-allowed; }
         
-        .monitor-zone { margin-top: 25px; display: none; background: #030305; border: 1px solid #1a1a26; padding: 15px; }
-        .meta-grid { display: flex; justify-content: space-between; font-size: 12px; color: #aaa; margin-bottom: 10px; font-weight: bold; }
-        .progress-track { width: 100%; background: #0a0a0f; height: 18px; border: 1px solid #222; overflow: hidden; position: relative; }
-        .progress-bar { width: 0%; height: 100%; background: linear-gradient(90deg, var(--accent), var(--gold)); box-shadow: 0 0 15px var(--accent); transition: width 0.1s linear; }
+        .hud { margin-top: 30px; display: none; text-align: left; }
+        .hud-header { display: flex; justify-content: space-between; font-size: 12px; font-weight: bold; color: #aaa; margin-bottom: 10px; }
+        .hud-stage { color: #00ffcc; text-shadow: 0 0 5px #00ffcc; }
+        .hud-stage.drop { color: #ff003c; text-shadow: 0 0 8px #ff003c; font-size: 14px; }
+        .progress-bg { width: 100%; height: 6px; background: #111; border-radius: 3px; overflow: hidden; }
+        .progress-fill { width: 0%; height: 100%; background: var(--neon); box-shadow: 0 0 10px var(--neon); transition: width 0.1s linear; }
         
-        .terminal { margin-top: 25px; background: #010102; border: 1px solid #111; height: 260px; overflow-y: auto; text-align: left; padding: 15px; font-size: 11px; line-height: 1.6; }
-        .row { border-bottom: 1px solid #050508; padding: 3px 0; color: #888; }
-        .row span { color: var(--accent); font-weight: bold; }
-        .row-warn { color: var(--gold); font-weight: bold; }
-        .row-success { color: #00ff66; font-weight: bold; text-shadow: 0 0 5px #00ff66; }
+        .console { margin-top: 25px; background: #030304; border: 1px solid #1a1a24; padding: 15px; height: 220px; overflow-y: auto; font-size: 11px; color: #999; line-height: 1.7; border-radius: 4px; }
+        .log { border-bottom: 1px solid #0a0a0f; padding: 2px 0; }
+        .log-sys { color: #8a2be2; font-weight: bold; }
+        .log-boom { color: #ff003c; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="hub">
-        <h1>RAGNAROK COMPILER v6</h1>
-        <div class="status-sub">2-Min Chaotic Fractal Drift Phonk Engine</div>
+    <div class="container">
+        <h1>V7 ARCHITECT ENGINE</h1>
+        <div class="desc">FM Synthesis | Dynamic Gain Control | Procedural Motifs</div>
         
-        <button id="igniteBtn" onclick="triggerRagnarokEngine()">2 DAKİKALIK GERÇEK PHONK BANGER DERLE (.WAV)</button>
+        <button id="startBtn" onclick="initiateV7()">2 DK KUSURSUZ WAV DERLE (BAŞLA)</button>
 
-        <div class="monitor-zone" id="monitor">
-            <div class="meta-grid">
-                <span id="liveStage" style="color: var(--gold);">SAHNE: MATRIX BAŞLATILIYOR</span>
-                <span id="liveChunk">BLOK: 0 / 20</span>
+        <div class="hud" id="hudInfo">
+            <div class="hud-header">
+                <span id="txtStage" class="hud-stage">SAHNE: YÜKLENİYOR...</span>
+                <span id="txtChunk">BLOK: 0/24</span>
             </div>
-            <div class="progress-track"><div class="progress-bar" id="progressBar"></div></div>
+            <div class="progress-bg"><div class="progress-fill" id="pBar"></div></div>
         </div>
 
-        <div class="terminal" id="term">
-            <div class="row"><span>[KERNEL]</span> Kaos motoru aktif edildi. Sabit döngüler kalıcı olarak devre dışı.</div>
+        <div class="console" id="terminal">
+            <div class="log"><span class="log-sys">[SİSTEM]</span> Standart Web Audio sesleri iptal edildi.</div>
+            <div class="log"><span class="log-sys">[SİSTEM]</span> FM (Frekans Modülasyonu) Sentezleyici Aktif.</div>
         </div>
     </div>
 
     <script>
-        // --- 120 SANİYELİK KESİNTİSİZ PHONK MATRİSİ ---
+        // --- 120 SANİYELİK KUSURSUZ ZAMANLAMA ---
         const SAMPLE_RATE = 44100;
-        const TEMPO = 160; // Tam gaz Drift hızı
-        const STEP_TIME = (60 / TEMPO) / 4; // 16'lık nota aralığı (~0.0937 Saniye)
-        const STEPS_PER_CHUNK = 64; // Blok başına 4 tam ölçü
-        const CHUNK_DURATION = STEPS_PER_CHUNK * STEP_TIME; // Blok süresi (~6 Saniye)
-        const TOTAL_CHUNKS = 20; // 20 Blok x 6 Saniye = Tam 120 Saniyelik Benzersiz Akış
+        const TEMPO = 145; // Toksik ama ritmik, groove sağlayan hız
+        const STEP_TIME = (60 / TEMPO) / 4; // 16'lık (0.103 Saniye)
+        const STEPS_PER_CHUNK = 64; // 1 Blok = 4 Ölçü = ~6.6 Saniye
+        const CHUNK_DURATION = STEPS_PER_CHUNK * STEP_TIME; 
+        const TOTAL_CHUNKS = 18; // ~120 Saniyelik Dev Banger (18 x 6.6)
         
-        let leftBufferPool = [];
-        let rightBufferPool = [];
-        let chunkIndex = 0;
+        let outLeft = [];
+        let outRight = [];
+        let chunkID = 0;
 
-        // C# Gipsy / Phrygian Bozuk Skala Yapısı (En Karanlık Phonk Harmonikleri)
-        const baseScale = [69.30, 73.42, 82.41, 87.31, 98.00, 103.83, 116.54, 138.59, 146.83, 164.81, 174.61, 196.00];
+        const SCALES = {
+            phrygian: [65.41, 69.30, 77.78, 87.31, 98.00, 103.83, 116.54],
+            minor: [65.41, 73.42, 77.78, 87.31, 98.00, 103.83, 116.54]
+        };
 
-        function printLog(msg, style = "normal") {
-            const t = document.getElementById('term');
-            let time = new Date().toLocaleTimeString();
-            let content = `<div class="row"><span>[${time}]</span> ${msg}</div>`;
-            if (style === "warn") content = `<div class="row class="row-warn" style="color:#ffaa00;"><span>[${time}]</span> 🔥 ${msg}</div>`;
-            if (style === "success") content = `<div class="row row-success">[${time}] ⚡ ${msg}</div>`;
-            t.innerHTML += content;
-            t.scrollTop = t.scrollHeight;
+        let currentScale = SCALES.phrygian;
+
+        function tLog(msg, type = "") {
+            const el = document.getElementById('terminal');
+            let cls = type === "sys" ? "log-sys" : (type === "boom" ? "log-boom" : "");
+            el.innerHTML += `<div class="log"><span class="${cls}">[+]</span> ${msg}</div>`;
+            el.scrollTop = el.scrollHeight;
         }
 
-        // --- ASİMETRİK KULAK PATLATAN (EARRAPE) ANALOG SHAPER ---
-        function createRagnarokCurve() {
+        // --- CUSTOM WAVETABLES (PLASTİK SESLERİ YOK EDER) ---
+        function createFat808Wave(ctx) {
+            let real = new Float32Array([0, 1, 0.5, 0.1, 0.05, 0, 0.02]);
+            let imag = new Float32Array(real.length);
+            return ctx.createPeriodicWave(real, imag);
+        }
+
+        // --- HARD CLIPPING (EARRAPE BOZUCU EĞRİ) ---
+        function getClippingCurve() {
             let n = 44100, curve = new Float32Array(n);
             for(let i=0; i<n; i++) {
                 let x = (i / n - 0.5) * 2;
-                // Hard-clipping ötesi, dalgayı kare dalgaya zorlayan nükleer formül
-                curve[i] = Math.sign(x) * (1 - Math.exp(-Math.abs(x * 180))) * 1.2;
+                curve[i] = Math.max(-1, Math.min(1, x * 150)); // Saf kesici
             }
             return curve;
         }
-        const ragnarokDistortionCurve = createRagnarokCurve();
+        const clipCurve = getClippingCurve();
 
-        // --- FRAKTAL MATEMATİKSEL MELODİ MOTORU (TEKRAR ETMEZ) ---
-        function fractalNoiseEngine(absoluteStep, stage) {
-            let measure = Math.floor(absoluteStep / 16);
-            let step16 = absoluteStep % 16;
+        // --- SENTEZLEYİCİ MODÜLLERİ (FM SYNTHESIS) ---
 
-            // Şarkının saniyesine göre sürekli değişen fraktal katsayısı
-            // Bu matematiksel kaos sayesinde melodi 2 dakika boyunca sürekli evrilir
-            let fractalFactor = Math.sin(measure * 0.4) * Math.cos(absoluteStep * 0.15);
-            let scaleOffset = Math.abs(Math.floor(fractalFactor * baseScale.length)) % baseScale.length;
-            
-            let targetNote = baseScale[scaleOffset] * 2; // Cowbell temel oktavı
+        function playFMCowbell(ctx, out, freq, time, isDrop) {
+            // Cowbell'in içi boş metalik sesini veren Modülatör-Taşıyıcı (FM) Sistemi
+            const carrier = ctx.createOscillator();
+            const modulator = ctx.createOscillator();
+            const modGain = ctx.createGain();
+            const masterGain = ctx.createGain();
 
-            if (stage === "INTRO") {
-                // Seyrek, gizemli ve ağır fraktal adımları
-                if (step16 === 0 || step16 === 8) return targetNote;
-                if (step16 === 12 && fractalFactor > 0) return targetNote * 1.2;
-                return null;
-            }
+            // Taşıyıcı: Temel Nota
+            carrier.type = "sine";
+            carrier.frequency.value = freq;
 
-            if (stage === "BUILDUP") {
-                // Tırmanan ve sıkışan ritim notaları
-                if (step16 % 4 === 0) return targetNote * (1 + (step16 * 0.03));
-                if (step16 % 2 === 0 && measure % 2 === 1) return targetNote * 1.5;
-                return null;
-            }
+            // Modülatör: Metalik tınıyı yaratan çarpık frekans
+            modulator.type = "square";
+            modulator.frequency.value = freq * 3.14; // İrrasyonel harmoni (Metal hissi)
 
-            if (stage === "DROP1") {
-                // AGRESİF MEMPHIS PHONK RIFF MATRIX (Sürekli Değişken)
-                // Adım kombinasyonları fraktal değere göre her ölçüde baştan yazılır
-                let triggerMap = (Math.abs(Math.floor(fractalFactor * 999)) % 3);
-                
-                if (triggerMap === 0) {
-                    let p1 = [targetNote, null, targetNote, null, targetNote*1.33, null, targetNote*1.5, null, null, targetNote, null, targetNote*1.2, targetNote, null, targetNote*1.8, null];
-                    return p1[step16];
-                } else if (triggerMap === 1) {
-                    let p2 = [targetNote*1.5, null, targetNote*1.2, targetNote, null, targetNote*1.8, null, targetNote, targetNote*1.33, null, null, targetNote, null, targetNote*2.0, null, targetNote];
-                    return p2[step16];
-                } else {
-                    if (step16 % 3 === 0) return targetNote * 1.4;
-                    return null;
-                }
-            }
+            // FM Derinliği Envelopu
+            modGain.gain.setValueAtTime(freq * 2, time);
+            modGain.gain.exponentialRampToValueAtTime(0.01, time + 0.15);
 
-            if (stage === "DROP2") {
-                // MUTLAK KAOS - ÜÇLEME VE GLIDE ETKİSİ
-                // Notalar aşırı yüksek oktavdan çığlık atar
-                if (step16 === 0 || step16 === 3 || step16 === 6 || step16 === 9 || step16 === 11 || step16 === 14) {
-                    return targetNote * 2.5; // Kulak yırtan tiz cowbell katmanı
-                }
-                return null;
-            }
+            // Ses Envelopu (Vurmalı)
+            masterGain.gain.setValueAtTime(isDrop ? 2.5 : 1.0, time);
+            masterGain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
 
-            if (stage === "BREAK") {
-                if (step16 === 0 || step16 === 10) return targetNote * 0.8;
-                return null;
-            }
+            modulator.connect(modGain);
+            modGain.connect(carrier.frequency); // FM BURADA GERÇEKLEŞİR
+            carrier.connect(masterGain);
+            masterGain.connect(out);
 
-            return null;
+            modulator.start(time); carrier.start(time);
+            modulator.stop(time + 0.5); carrier.stop(time + 0.5);
         }
 
-        // --- 30+ KATMANLI ENSTRÜMAN VE SENTEZLEYİCİ MODÜLLERİ ---
-
-        function triggerDeafening808(ctx, target, time, freq) {
-            // Tam 6 katmanlı agresif sub ve saturasyon bas osilatör bloğu
-            for(let i = 0; i < 6; i++) {
+        function playFat808(ctx, out, wave, freq, time, isDrop) {
+            // Çok katmanlı, distorsiyonlu 808
+            for(let i = 0; i < 3; i++) {
                 const osc = ctx.createOscillator();
                 const gain = ctx.createGain();
                 
-                osc.type = i % 2 === 0 ? "sine" : "triangle";
-                // Mikroskobik detune ile stereo genişlik basıyoruz
-                osc.frequency.setValueAtTime(freq + (i * 0.9), time);
-                // Drift Phonk'un meşhur bas kayması (Bass Glide)
-                osc.frequency.exponentialRampToValueAtTime(26, time + 0.35);
+                osc.setPeriodicWave(wave);
+                // Bass Glide (Kayma) Efekti
+                osc.frequency.setValueAtTime(freq * 1.5, time);
+                osc.frequency.exponentialRampToValueAtTime(freq * 0.5, time + (isDrop ? 0.3 : 0.5));
                 
-                gain.gain.setValueAtTime(5.0, time); // Aşırı limit zorlama
-                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.58);
+                gain.gain.setValueAtTime(isDrop ? 6.0 : 2.0, time); // Drop anında parçalar
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.7);
                 
-                osc.connect(gain); gain.connect(target);
-                osc.start(time); osc.stop(time + 0.6);
+                osc.connect(gain); gain.connect(out);
+                osc.start(time); osc.stop(time + 0.8);
             }
         }
 
-        function triggerSlamKick(ctx, target, time) {
+        function playPunchKick(ctx, out, time, isDrop) {
             const osc = ctx.createOscillator();
             const gain = ctx.createGain();
-            osc.type = "sawtooth";
-            osc.frequency.setValueAtTime(480, time);
-            osc.frequency.exponentialRampToValueAtTime(52, time + 0.08);
+            osc.type = "square"; // Kick vuruşuna sert bir "tık" ekler
             
-            gain.gain.setValueAtTime(8.0, time); // En yüksek kırpma eşiği
-            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+            osc.frequency.setValueAtTime(500, time);
+            osc.frequency.exponentialRampToValueAtTime(40, time + 0.08);
             
-            osc.connect(gain); gain.connect(target);
-            osc.start(time); osc.stop(time + 0.16);
+            gain.gain.setValueAtTime(isDrop ? 8.0 : 3.0, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+            
+            osc.connect(gain); gain.connect(out);
+            osc.start(time); osc.stop(time + 0.15);
         }
 
-        function triggerViolentSnare(ctx, target, time) {
-            // Kare dalgalardan örülmüş, gürültü filtreli 4'lü trampet hücumu
-            for(let i = 0; i < 4; i++) {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = "square";
-                osc.frequency.setValueAtTime(320 + (i * 55), time);
-                osc.frequency.linearRampToValueAtTime(75, time + 0.13);
-                
-                gain.gain.setValueAtTime(3.5, time);
-                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
-                
-                osc.connect(gain); gain.connect(target);
-                osc.start(time); osc.stop(time + 0.16);
+        // --- ÜRETKEN MOTİF HAVUZU (Müzikal Cümleler) ---
+        // Sıkıcı matematik formülleri yerine, özenle yazılmış farklı phonk riff'leri.
+        // Motor bunları kombinleyerek anlamlı ve dinamik bir beste oluşturur.
+        const RIFF_LIBRARY = [
+            // Riff 0: Soru (Yükselen)
+            [1, 0, 0, 1.2, 0, 1, 0, 1.5, 0, 1, 1.2, 0, 0, 1, 1.5, 0],
+            // Riff 1: Cevap (Kapanan)
+            [1.5, 0, 1.33, 0, 1, 0, 1, 0.8, 1, 0, 0, 1.2, 1, 0, 0, 0],
+            // Riff 2: Senkoplu Atak (Memphis style)
+            [0, 1, 1, 0, 1.5, 0, 1, 1, 0, 1.33, 1, 0, 1.8, 0, 1, 0],
+            // Riff 3: Üçlemeler (Trip)
+            [2.0, 0, 1.5, 1.2, 0, 1, 0, 0, 1.5, 0, 1, 1.2, 0, 1, 0, 1],
+            // Riff 4: Seyrek & Gizemli
+            [1, 0, 0, 0, 1.2, 0, 0, 0, 1.5, 0, 0, 1.2, 0, 0, 1, 0]
+        ];
+
+        // --- ARANJMAN VE BLOK MOTORU ---
+        function generateBlock(ctx, filterNode, chunkNum) {
+            const startStep = chunkNum * STEPS_PER_CHUNK;
+            let custom808Wave = createFat808Wave(ctx);
+            let stage = "";
+            let isDrop = false;
+
+            // DİNAMİK YAPILANDIRMA: Sessizden Gürültüye
+            // Filtreleme (Lowpass) ve Volüm yönetimi ile Banger etkisi
+            let currentCutoff = 22000;
+            
+            if (chunkNum >= 0 && chunkNum < 3) {
+                stage = "INTRO (Sessiz ve Gizemli)";
+                currentCutoff = 800; // Ses boğuk ve derinden gelir
+                filterNode.gain.value = 0.5; // Kısık ses
             }
-        }
-
-        function triggerToxicCowbellWall(ctx, target, freq, time) {
-            // İSTEDİĞİNİZ DELECEK 30+ ENSTRÜMAN SESİ BURADA:
-            // Tam 16 adet bağımsız, frekansları mikro düzeyde kaydırılmış (Detuned FM) osilatör canavarı!
-            const harmonicsMap = [1.0, 1.01, 1.49, 1.51, 2.43, 2.45, 3.10, 3.12, 0.5, 2.0, 4.0, 5.0, 5.8, 6.2, 0.75, 8.0];
-            
-            harmonicsMap.forEach((mult) => {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                
-                osc.type = mult > 2.0 ? "square" : "triangle";
-                osc.frequency.setValueAtTime(freq * mult, time);
-                
-                gain.gain.setValueAtTime(2.2, time);
-                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.32);
-                
-                osc.connect(gain); gain.connect(target);
-                osc.start(time); osc.stop(time + 0.35);
-            });
-        }
-
-        function triggerDriftSupersaw(ctx, target, freq, time, dur) {
-            // Arka planda camları darmadağın eden 6 katmanlı testere dalgası korosu
-            for(let i = 0; i < 6; i++) {
-                const osc = ctx.createOscillator();
-                const gain = ctx.createGain();
-                osc.type = "sawtooth";
-                
-                osc.frequency.setValueAtTime(freq * (1 + (i * 0.005)), time);
-                osc.frequency.linearRampToValueAtTime((freq * 0.8), time + dur); // Portamento/Glide
-                
-                gain.gain.setValueAtTime(0, time);
-                gain.gain.linearRampToValueAtTime(2.0, time + 0.06);
-                gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
-                
-                osc.connect(gain); gain.connect(target);
-                osc.start(time); osc.stop(time + dur + 0.02);
+            else if (chunkNum >= 3 && chunkNum < 4) {
+                stage = "BUILD-UP (Gerilim Artıyor)";
+                currentCutoff = 4000; // Filtre açılmaya başlar
+                filterNode.gain.value = 1.0;
             }
-        }
+            else if (chunkNum >= 4 && chunkNum < 10) {
+                stage = "DROP 1 (MUTLAK EARRAPE)";
+                currentCutoff = 22000; // Filtre tamamen açık (Bypass)
+                filterNode.gain.value = 3.5; // KULAK PATLATAN VOLUME
+                isDrop = true;
+            }
+            else if (chunkNum >= 10 && chunkNum < 12) {
+                stage = "KÖPRÜ (Nefes Alma)";
+                currentCutoff = 1500;
+                filterNode.gain.value = 0.8;
+                currentScale = SCALES.minor; // Ton değişir, hissiyat farklılaşır
+            }
+            else if (chunkNum >= 12 && chunkNum < 17) {
+                stage = "DROP 2 (FİNAL KAOSU)";
+                currentCutoff = 22000;
+                filterNode.gain.value = 3.8; // MAX VOLUME
+                isDrop = true;
+            }
+            else {
+                stage = "OUTRO (Solma)";
+                currentCutoff = 600;
+                filterNode.gain.value = 0.4;
+            }
 
-        // --- DİNAMİK ARANJMAN VE BLOK PLANLAYICI ---
-        function buildDynamicStructure(chunkCtx, outputNode, currentChunkNum) {
-            const startStep = currentChunkNum * STEPS_PER_CHUNK;
-            let stage = "INTRO";
-
-            // 120 Saniyelik Akışın Zaman Çizelgesi Algoritması
-            if (currentChunkNum >= 0 && currentChunkNum < 3) stage = "INTRO";       // 0 - 18 Saniye
-            else if (currentChunkNum >= 3 && currentChunkNum < 5) stage = "BUILDUP"; // 18 - 30 Saniye
-            else if (currentChunkNum >= 5 && currentChunkNum < 10) stage = "DROP1";  // 30 - 60 Saniye (DROP KESİNTİSİZ)
-            else if (currentChunkNum >= 10 && currentChunkNum < 12) stage = "BREAK"; // 60 - 72 Saniye
-            else if (currentChunkNum >= 12 && currentChunkNum < 18) stage = "DROP2"; // 72 - 108 Saniye (KAYMALAR VE HÜCUM)
-            else stage = "OUTRO";                                                    // 108 - 120 Saniye
-
-            // UI Güncelleme İşi
+            // Arayüz Güncellemesi
             setTimeout(() => {
-                const stageTxt = document.getElementById('liveStage');
-                stageTxt.innerText = `SAHNE: ${stage}`;
-                if (stage.includes("DROP")) stageTxt.style.color = "var(--accent)";
-                else stageTxt.style.color = "var(--gold)";
+                const el = document.getElementById('txtStage');
+                el.innerText = `SAHNE: ${stage}`;
+                el.className = isDrop ? "hud-stage drop" : "hud-stage";
             }, 0);
 
+            // Bu bloğun (4 ölçü) kullanılacak Riff'lerini müzikal bir mantıkla seçiyoruz
+            // Her 4 ölçüde kombinasyon değişir, ama rastgele gürültü yapmaz.
+            let measurePattern = [];
+            if (isDrop) {
+                // Drop: Dinamik ataklar ve agresif riff'ler
+                let rand = chunkNum % 3;
+                if (rand === 0) measurePattern = [RIFF_LIBRARY[0], RIFF_LIBRARY[1], RIFF_LIBRARY[0], RIFF_LIBRARY[2]];
+                if (rand === 1) measurePattern = [RIFF_LIBRARY[2], RIFF_LIBRARY[3], RIFF_LIBRARY[0], RIFF_LIBRARY[1]];
+                if (rand === 2) measurePattern = [RIFF_LIBRARY[3], RIFF_LIBRARY[3], RIFF_LIBRARY[1], RIFF_LIBRARY[2]];
+            } else {
+                // Intro/Bridge: Seyrek riff'ler
+                measurePattern = [RIFF_LIBRARY[4], RIFF_LIBRARY[4], RIFF_LIBRARY[0], RIFF_LIBRARY[4]];
+            }
+
+            // Notaları Yazdırma Döngüsü
             for (let s = 0; s < STEPS_PER_CHUNK; s++) {
                 let absoluteStep = startStep + s;
                 let step16 = absoluteStep % 16;
-                let localTime = s * STEP_TIME; // Her blok zamanı sıfırdan başlar
+                let measureInChunk = Math.floor(s / 16); // 0, 1, 2, 3
+                let localTime = s * STEP_TIME;
 
-                // Fraktal bas notası tetikleyicisi
-                let currentBassFreq = baseScale[absoluteStep % baseScale.length] * 0.5;
+                let baseFreq = currentScale[absoluteStep % 3] * 2; // Dinamik kök frekansı
 
-                // --- RİTİM MOTORU SEÇİCİSİ ---
-                if (stage === "DROP1") {
-                    // Toksik standart Drift Düzeni
+                // 1. RİTİM MOTORU
+                if (isDrop) {
                     if (step16 === 0 || step16 === 6 || step16 === 10) {
-                        triggerDeafening808(chunkCtx, outputNode, localTime, currentBassFreq);
-                        triggerSlamKick(chunkCtx, outputNode, localTime);
+                        playPunchKick(ctx, filterNode, localTime, true);
+                        playFat808(ctx, filterNode, custom808Wave, baseFreq * 0.25, localTime, true);
                     }
-                    if (step16 === 4 || step16 === 12) {
-                        triggerViolentSnare(chunkCtx, outputNode, localTime);
-                    }
-                    // Arka Plan Supersaw Yıkımı
-                    if (step16 === 0 || step16 === 8) {
-                        triggerDriftSupersaw(chunkCtx, outputNode, currentBassFreq, localTime, STEP_TIME * 6);
-                    }
-                } 
-                else if (stage === "DROP2") {
-                    // ÜÇLEME (TRIPLET) VE AGRESİF KAYMALAR
-                    if (step16 === 0 || step16 === 3 || step16 === 6 || step16 === 9 || step16 === 12) {
-                        triggerDeafening808(chunkCtx, outputNode, localTime, currentBassFreq * 1.2);
-                        triggerSlamKick(chunkCtx, outputNode, localTime);
-                    }
-                    if (step16 === 4 || step16 === 10 || step16 === 14) {
-                        triggerViolentSnare(chunkCtx, outputNode, localTime);
-                    }
-                    if (step16 % 4 === 0) {
-                        triggerDriftSupersaw(chunkCtx, outputNode, currentBassFreq * 1.5, localTime, STEP_TIME * 4);
-                    }
-                }
-                else if (stage === "BUILDUP") {
-                    // Daralan ve hızlanan nükleer köprü ritmi
-                    if (step16 % 4 === 0) triggerSlamKick(chunkCtx, outputNode, localTime);
-                    if (step16 % 2 === 0 && absoluteStep % 32 >= 16) triggerViolentSnare(chunkCtx, outputNode, localTime);
-                }
-                else if (stage === "INTRO" || stage === "VERSE") {
-                    if (step16 % 4 === 0) triggerSlamKick(chunkCtx, outputNode, localTime);
+                } else if (stage.includes("BUILD")) {
+                    if (step16 % 4 === 0) playPunchKick(ctx, filterNode, localTime, false);
+                    if (step16 % 2 === 0 && s > 32) playFat808(ctx, filterNode, custom808Wave, baseFreq * 0.25, localTime, false);
+                } else {
+                    // Intro (Sadece derinden vuran yavaş kick)
+                    if (step16 === 0) playPunchKick(ctx, filterNode, localTime, false);
                 }
 
-                // --- FRAKTAL VE DEĞİŞKEN COWBELL TETİKLEMESİ ---
-                let cowbellPitch = fractalNoiseEngine(absoluteStep, stage);
-                if (cowbellPitch) {
-                    triggerToxicCowbellWall(chunkCtx, outputNode, cowbellPitch, localTime);
+                // 2. FM COWBELL MELODİSİ
+                let currentRiff = measurePattern[measureInChunk];
+                let noteMultiplier = currentRiff[step16];
+                
+                if (noteMultiplier > 0) {
+                    // İkinci dropta oktav fırlat
+                    let finalFreq = baseFreq * noteMultiplier * (stage.includes("DROP 2") ? 1.5 : 1.0);
+                    playFMCowbell(ctx, filterNode, finalFreq, localTime, isDrop);
                 }
             }
+
+            // Global Filtre Otomasyonu (Lowpass Sweep)
+            const lowpass = ctx.createBiquadFilter();
+            lowpass.type = "lowpass";
+            lowpass.frequency.setValueAtTime(currentCutoff, 0);
+            
+            // Eğer buildup içindeysek, filtreyi bloğun başından sonuna kadar yavaşça açar
+            if (stage.includes("BUILD")) {
+                lowpass.frequency.linearRampToValueAtTime(15000, CHUNK_DURATION);
+            }
+
+            // Bağlantı Zinciri: filterNode(Gain) -> Lowpass -> Master
+            filterNode.connect(lowpass);
+            lowpass.connect(ctx.destination);
         }
 
-        // --- ASENKRON PARÇALI BLOK SÜRÜCÜSÜ (SEQUENTIAL PIPELINE) ---
-        async function runNextChunkPipeline() {
-            if (chunkIndex >= TOTAL_CHUNKS) {
-                printLog("Fraktal veri matrisi tamamlandı. Büyük WAV birleştirme döngüsüne giriliyor...", "warn");
-                stitchAndDownloadWav();
+        // --- ASENKRON RENDER PIPELINE ---
+        async function renderPipeline() {
+            if (chunkID >= TOTAL_CHUNKS) {
+                tLog("Aranjman Bitti. Dosya Paketleniyor (Stitch & Encode)...", "sys");
+                buildWavFile();
                 return;
             }
 
-            let displayBlock = chunkIndex + 1;
-            document.getElementById('liveChunk').innerText = `BLOK: ${displayBlock} / ${TOTAL_CHUNKS}`;
+            document.getElementById('txtChunk').innerText = `BLOK: ${chunkID + 1} / ${TOTAL_CHUNKS}`;
             
-            if (displayBlock === 6) printLog("DROP 1 AKIŞI BAŞLADI: Kaotik Baslar Tetiklendi!", "warn");
-            if (displayBlock === 13) printLog("DROP 2 AKIŞI BAŞLADI: Üçlemeler ve Kulak Patlatan Frekanslar!", "warn");
+            if (chunkID === 4) tLog("DROP 1: Kulak kanatan FM dalgaları devrede!", "boom");
+            if (chunkID === 12) tLog("DROP 2: Voltaj maksimumda, üçlemeler vuruyor!", "boom");
 
-            // Her döngüde tarayıcıyı kasmayacak yepyeni ve bağımsız bir temiz Context açıyoruz
-            const chunkAudioCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, SAMPLE_RATE * CHUNK_DURATION, SAMPLE_RATE);
+            const offlineCtx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(2, SAMPLE_RATE * CHUNK_DURATION, SAMPLE_RATE);
             
-            // MASTER CHAIN (Blok Düzeyinde Maksimum Kulak Patlatma Efekt Hattı)
-            const chunkGain = chunkAudioCtx.createGain();
-            chunkGain.gain.setValueAtTime(2.6, 0); // Sinyal gücünü tavanın üstüne atıyoruz
+            // DİNAMİK MASTER SİNYAL ZİNCİRİ
+            const chunkMasterGain = offlineCtx.createGain(); 
+            // Gain seviyesi generateBlock içinden sahneye (Intro/Drop) göre dinamik ayarlanacak.
+            
+            const earrapeDistortion = offlineCtx.createWaveShaper();
+            earrapeDistortion.curve = clipCurve;
+            
+            const brickwallLimiter = offlineCtx.createDynamicsCompressor();
+            brickwallLimiter.threshold.value = -2;
+            brickwallLimiter.ratio.value = 20;
 
-            const chunkShaper = chunkAudioCtx.createWaveShaper();
-            chunkShaper.curve = ragnarokDistortionCurve; // Sinyali parçalayan bükücü curve
+            chunkMasterGain.connect(earrapeDistortion);
+            earrapeDistortion.connect(brickwallLimiter);
+            brickwallLimiter.connect(offlineCtx.destination);
 
-            const chunkCompressor = chunkAudioCtx.createDynamicsCompressor();
-            chunkCompressor.threshold.setValueAtTime(0, 0); // Dinamik aralığı sıfıra sıkıştır (Maksimum loudness)
-            chunkCompressor.ratio.setValueAtTime(20, 0);
-
-            chunkGain.connect(chunkShaper);
-            chunkShaper.connect(chunkCompressor);
-            chunkCompressor.connect(chunkAudioCtx.destination);
-
-            // Blok notalarını yerleştir
-            buildDynamicStructure(chunkAudioCtx, chunkGain, chunkIndex);
+            generateBlock(offlineCtx, chunkMasterGain, chunkID);
 
             try {
-                const completedBuffer = await chunkAudioCtx.startRendering();
+                const buffer = await offlineCtx.startRendering();
                 
-                // Tampon PCM verilerini ana listeye yedekle
-                leftBufferPool.push(completedBuffer.getChannelData(0));
-                rightBufferPool.push(completedBuffer.getChannelData(1));
+                outLeft.push(buffer.getChannelData(0));
+                outRight.push(buffer.getChannelData(1));
                 
-                chunkIndex++;
-                let globalPercent = (chunkIndex / TOTAL_CHUNKS) * 100;
-                document.getElementById('progressBar').style.width = globalPercent + "%";
+                chunkID++;
+                document.getElementById('pBar').style.width = ((chunkID / TOTAL_CHUNKS) * 100) + "%";
                 
-                // Tarayıcı çöp toplayıcısının (Garbage Collector) RAM'i boşaltması için kısa bir es veriyoruz
-                setTimeout(runNextChunkPipeline, 12);
-            } catch (ex) {
-                printLog(`[KRİTİK MATRIX HATASI] Blok ${chunkIndex} patladı: ` + ex.message);
-                restoreUI();
+                setTimeout(renderPipeline, 10);
+            } catch (e) {
+                tLog(`Sistem Hatası: ${e.message}`);
+                resetUI();
             }
         }
 
-        function triggerRagnarokEngine() {
-            document.getElementById('igniteBtn').disabled = true;
-            document.getElementById('monitor').style.display = "block";
-            document.getElementById('term').innerHTML = '';
+        function initiateV7() {
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('hudInfo').style.display = "block";
+            document.getElementById('terminal').innerHTML = '';
             
-            leftBufferPool = [];
-            rightBufferPool = [];
-            chunkIndex = 0;
+            outLeft = [];
+            outRight = [];
+            chunkID = 0;
             
-            printLog("Fraktal Kaos Motoru Ateşlendi. Sıkıcı döngüler silindi.", "warn");
-            runNextChunkPipeline();
+            tLog("V7 Mimarisi Ateşlendi. Sessiz intro hazırlanıyor...", "sys");
+            renderPipeline();
         }
 
-        function restoreUI() {
-            const btn = document.getElementById('igniteBtn');
+        function resetUI() {
+            const btn = document.getElementById('startBtn');
             btn.disabled = false;
-            btn.innerText = "YENİDEN BENZERSİZ BANGER ÜRET (.WAV)";
+            btn.innerText = "YENİDEN BANGER DERLE";
         }
 
-        // --- SAF GÜVENLİ 16-BIT STEREO WAV KODLAYICI ---
-        function stitchAndDownloadWav() {
-            printLog("Milyonlarca fraktal ses hücresi uç uca birleştiriliyor (Stitch)...");
+        // --- HIZLI VE KAYIPSIZ WAV ENCODER ---
+        function buildWavFile() {
+            tLog("Sinyaller WAV kapsülüne gömülüyor...");
             
-            let finalSamplesSize = SAMPLE_RATE * CHUNK_DURATION * TOTAL_CHUNKS;
-            let mergedLeftChannel = new Float32Array(finalSamplesSize);
-            let mergedRightChannel = new Float32Array(finalSamplesSize);
+            let totalSmp = SAMPLE_RATE * CHUNK_DURATION * TOTAL_CHUNKS;
+            let mergeL = new Float32Array(totalSmp);
+            let mergeR = new Float32Array(totalSmp);
             
-            let writePos = 0;
-            for (let i = 0; i < leftBufferPool.length; i++) {
-                mergedLeftChannel.set(leftBufferPool[i], writePos);
-                mergedRightChannel.set(rightBufferPool[i], writePos);
-                writePos += leftBufferPool[i].length;
+            let offset = 0;
+            for (let i = 0; i < outLeft.length; i++) {
+                mergeL.set(outLeft[i], offset);
+                mergeR.set(outRight[i], offset);
+                offset += outLeft[i].length;
             }
 
-            printLog("RIFF/WAVE İksir Başlıkları Yazılıyor...");
-            let rawWavFileBuffer = new ArrayBuffer(finalSamplesSize * 2 * 2 + 44);
-            let dView = new DataView(rawWavFileBuffer);
-            let byteOffset = 0;
+            let wavBuf = new ArrayBuffer(totalSmp * 2 * 2 + 44);
+            let view = new DataView(wavBuf);
+            let pos = 0;
 
-            function append32(val) { dView.setUint32(byteOffset, val, true); byteOffset += 4; }
-            function append16(val) { dView.setUint16(byteOffset, val, true); byteOffset += 2; }
+            function w32(v) { view.setUint32(pos, v, true); pos += 4; }
+            function w16(v) { view.setUint16(pos, v, true); pos += 2; }
 
-            // Standart RIFF Kafa Kodları
-            append32(0x46464952); // "RIFF"
-            append32(rawWavFileBuffer.byteLength - 8); 
-            append32(0x45564157); // "WAVE"
-            append32(0x20746d66); // "fmt "
-            append32(16); 
-            append16(1);          // Sıkıştırılmamış Ham PCM
-            append16(2);          // Stereo Çift Hoparlör Çıkışı
-            append32(SAMPLE_RATE);
-            append32(SAMPLE_RATE * 4); 
-            append16(4); 
-            append16(16);         // 16-Bit Kodlama Derinliği
-            append32(0x61746164); // "data"
-            append32(rawWavFileBuffer.byteLength - byteOffset - 4); 
+            w32(0x46464952); w32(wavBuf.byteLength - 8); 
+            w32(0x45564157); w32(0x20746d66); 
+            w32(16); w16(1); w16(2); 
+            w32(SAMPLE_RATE); w32(SAMPLE_RATE * 4); 
+            w16(4); w16(16); 
+            w32(0x61746164); w32(wavBuf.byteLength - pos - 4); 
 
-            // Float32 Sinyallerini Güvenli Int16 Sınırlarına (Wav Formatı) Ölçekleme Döngüsü
-            for (let i = 0; i < finalSamplesSize; i++) {
-                // Sol Kanal Sıkıştırma ve Yazma
-                let smpL = Math.max(-1, Math.min(1, mergedLeftChannel[i]));
-                dView.setInt16(byteOffset, smpL < 0 ? smpL * 32768 : smpL * 32767, true);
-                byteOffset += 2;
+            for (let i = 0; i < totalSmp; i++) {
+                let l = Math.max(-1, Math.min(1, mergeL[i]));
+                view.setInt16(pos, l < 0 ? l * 32768 : l * 32767, true); pos += 2;
                 
-                // Sağ Kanal Sıkıştırma ve Yazma
-                let smpR = Math.max(-1, Math.min(1, mergedRightChannel[i]));
-                dView.setInt16(byteOffset, smpR < 0 ? smpR * 32768 : smpR * 32767, true);
-                byteOffset += 2;
+                let r = Math.max(-1, Math.min(1, mergeR[i]));
+                view.setInt16(pos, r < 0 ? r * 32768 : r * 32767, true); pos += 2;
             }
 
-            printLog("WAV Kapsülü mühürlendi. Telefona indirme komutu gönderiliyor...", "warn");
-            const audioBlob = new Blob([rawWavFileBuffer], { type: 'audio/wav' });
-            const blobUrl = URL.createObjectURL(audioBlob);
+            const blob = new Blob([wavBuf], { type: 'audio/wav' });
+            const url = URL.createObjectURL(blob);
             
-            const linkElement = document.createElement('a');
-            linkElement.href = blobUrl;
-            linkElement.download = `RAGNAROK_TRUE_PHONK_${Date.now()}.wav`;
-            document.body.appendChild(linkElement);
-            linkElement.click();
-            document.body.removeChild(linkElement);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `V7_FM_BANGER_${Date.now()}.wav`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
 
-            printLog(`⚡ TAMAMLANDI: ${linkElement.download} telefona indi. Listeleri sallamaya hazır!`, "success");
-            restoreUI();
+            tLog("🔥 İŞLEM BAŞARILI! Banger cihazına indirildi.", "boom");
+            resetUI();
         }
     </script>
 </body>
