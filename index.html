@@ -3,439 +3,484 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PHONK COMPILER v2 [FIXED]</title>
+    <title>PHONK STREAM COMPILER</title>
     <style>
-        :root { --bg: #000; --accent: #ff003c; --text: #fff; }
-        body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
-        .container { border: 1px solid #333; padding: 30px; background: #0a0a0a; box-shadow: 0 0 30px rgba(255,0,60,0.1); width: 90%; max-width: 700px; text-align: center; }
-        h1 { font-size: 28px; text-shadow: 0 0 10px var(--accent); letter-spacing: 3px; margin-bottom: 5px; }
-        p { color: #888; font-size: 12px; margin-bottom: 30px; }
-        button { background: transparent; color: var(--accent); border: 2px solid var(--accent); padding: 20px 40px; font-size: 18px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; width: 100%; letter-spacing: 2px; }
-        button:hover { background: var(--accent); color: #000; box-shadow: 0 0 20px var(--accent); }
-        button:disabled { border-color: #555; color: #555; cursor: not-allowed; box-shadow: none; background: transparent; }
-        .console { margin-top: 20px; background: #050505; border: 1px solid #222; padding: 15px; height: 200px; overflow-y: auto; text-align: left; font-size: 11px; color: #0f0; box-shadow: inset 0 0 10px #000; }
-        .log-line { margin: 2px 0; }
-        .log-error { color: #ff003c; }
-        .log-success { color: #ff00ff; }
+        :root { --bg: #030303; --accent: #00ffcc; --text: #fff; --panel: #0f0f14; }
+        body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; }
+        .container { border: 2px solid #222; padding: 30px; background: var(--panel); box-shadow: 0 0 40px rgba(0,255,204,0.05); width: 90%; max-width: 700px; text-align: center; border-radius: 8px; }
+        h1 { font-size: 26px; text-shadow: 0 0 15px var(--accent); letter-spacing: 3px; margin-bottom: 5px; color: var(--accent); }
+        p { color: #888; font-size: 12px; margin-bottom: 25px; }
+        .btn-group { display: flex; gap: 10px; }
+        button { flex: 1; background: transparent; color: var(--accent); border: 2px solid var(--accent); padding: 20px; font-size: 16px; font-weight: bold; cursor: pointer; text-transform: uppercase; transition: 0.3s; letter-spacing: 2px; box-shadow: inset 0 0 10px rgba(0,255,204,0.05); }
+        button:hover:not(:disabled) { background: var(--accent); color: #000; box-shadow: 0 0 25px var(--accent); }
+        button:disabled { border-color: #444; color: #444; cursor: not-allowed; box-shadow: none; }
+        .progress-box { margin-top: 20px; font-size: 14px; font-weight: bold; color: #fff; display: none; }
+        .console { margin-top: 20px; background: #000; border: 1px solid #222; padding: 15px; height: 180px; overflow-y: auto; text-align: left; font-size: 11px; color: #00ffcc; font-family: monospace; }
+        .log-line { margin: 3px 0; border-bottom: 1px solid #111; padding-bottom: 2px; }
+        .log-highlight { color: #ff00ff; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>PHONK COMPILER V2</h1>
-        <p>Kilitlenme Sorunu Giderilmiş 120 Saniyelik Saf Algoritmik Render Motoru</p>
+        <h1>PHONK STREAM COMPILER</h1>
+        <p>Real-Time Stream Recording & Binary Buffer Wav Packaging</p>
         
-        <button id="renderBtn" onclick="startRender()">TRACK OLUŞTUR VE İNDİR</button>
+        <div class="btn-group">
+            <button id="startBtn" onclick="initAndRecord()">MÜZİĞİ OLUŞTUR VE İNDİR</button>
+            <button id="stopBtn" onclick="stopRecordingEarly()" disabled>KAYDI ERKEN KES VE İNDİR</button>
+        </div>
+
+        <div class="progress-box" id="progressBox">KAYIT SÜRESİ: <span id="timer">0.0</span> / 90 Saniye</div>
         
         <div class="console" id="console">
-            <div class="log-line">Sistem Hazır. İşlemci Girişi Bekleniyor...</div>
+            <div class="log-line">Sistem Aktif. Stream Modu Tetiklenmeyi Bekliyor...</div>
         </div>
     </div>
 
     <script>
-        const DURATION = 120; 
+        // --- APPARATUS CONFIG ---
+        const TARGET_DURATION = 90; // Stream modu için ideal süre (1.5 Dakika)
         const SAMPLE_RATE = 44100;
-        const TEMPO = 135;
+        const TEMPO = 130;
         const STEP_TIME = (60 / TEMPO) / 4; 
-        
-        let offlineCtx;
-        let masterGain, compressor, dcBlocker;
 
-        function log(msg, type="normal") {
+        let audioCtx;
+        let masterGain, dcBlocker, mainLimiter;
+        let streamDest;
+        let mediaRecorder;
+        let recordedChunks = [];
+        
+        let schedulerTimerId;
+        let nextNoteTime = 0.0;
+        let currentStep = 0;
+        let measure = 0;
+        let songSection = 0; // 0:Intro, 1:Build, 2:Drop, 3:Break, 4:Drop2
+
+        // --- MATH DISTORTION CURVES ---
+        function generateDistortionCurve(amount) {
+            let n = 44100, curve = new Float32Array(n);
+            for(let i=0; i<n; i++) {
+                let x = (i / n - 0.5) * 2;
+                curve[i] = Math.tanh(x * amount);
+            }
+            return curve;
+        }
+        const extremeDist = generateDistortionCurve(95);
+        const heavyDist = generateDistortionCurve(55);
+        const smoothDist = generateDistortionCurve(20);
+
+        function log(msg, highlight = false) {
             const cons = document.getElementById('console');
             const div = document.createElement('div');
-            div.className = `log-line ${type === 'error' ? 'log-error' : type === 'success' ? 'log-success' : ''}`;
-            div.innerText = `[${new Date().toISOString().split('T')[1].slice(0,-1)}] ${msg}`;
+            div.className = `log-line ${highlight ? 'log-highlight' : ''}`;
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
             cons.appendChild(div);
             cons.scrollTop = cons.scrollHeight;
         }
 
-        function createDistCurve(amount) {
-            let n = 44100, curve = new Float32Array(n);
-            for(let i=0; i<n; i++) curve[i] = Math.tanh((i / n - 0.5) * amount);
-            return curve;
-        }
-        
-        const distEarrape = createDistCurve(120); // Daha da ezici hale getirildi
-        const distHeavy = createDistCurve(70);
-        const distMed = createDistCurve(25);
+        // --- SYNTHESIZERS (REAL-TIME ENGINE) ---
+        function triggerKick(time, mode = "808") {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const dist = audioCtx.createWaveShaper();
 
-        // --- ENSTRÜMAN MOTORLARI (STRICT STOP BINDINGS) ---
-        
-        function synthKick(time, type="808") {
-            const osc = offlineCtx.createOscillator();
-            const gain = offlineCtx.createGain();
-            const dist = offlineCtx.createWaveShaper();
-            
-            if(type === "808") {
-                osc.frequency.setValueAtTime(130, time);
-                osc.frequency.exponentialRampToValueAtTime(25, time + 0.15);
-                gain.gain.setValueAtTime(5.0, time);
+            if(mode === "808") {
+                osc.frequency.setValueAtTime(140, time);
+                osc.frequency.exponentialRampToValueAtTime(30, time + 0.18);
+                gain.gain.setValueAtTime(4.5, time);
                 gain.gain.exponentialRampToValueAtTime(0.001, time + 0.45);
-                gain.gain.linearRampToValueAtTime(0, time + 0.5);
-                dist.curve = distHeavy;
-            } else {
-                osc.frequency.setValueAtTime(260, time);
-                osc.frequency.exponentialRampToValueAtTime(45, time + 0.05);
-                gain.gain.setValueAtTime(3.5, time);
-                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
-                gain.gain.linearRampToValueAtTime(0, time + 0.15);
-                dist.curve = distMed;
+                dist.curve = extremeDist;
+            } else { // Hard Punch
+                osc.frequency.setValueAtTime(220, time);
+                osc.frequency.exponentialRampToValueAtTime(45, time + 0.06);
+                gain.gain.setValueAtTime(3.0, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
+                dist.curve = smoothDist;
             }
-            
+            gain.gain.linearRampToValueAtTime(0, time + 0.48);
+
             osc.connect(dist); dist.connect(gain); gain.connect(masterGain);
             osc.start(time); osc.stop(time + 0.5);
         }
 
-        function synthSnare(time, type="trap") {
-            const osc = offlineCtx.createOscillator();
-            const noise = offlineCtx.createBufferSource();
-            const buffer = offlineCtx.createBuffer(1, SAMPLE_RATE * 0.3, SAMPLE_RATE);
-            const data = buffer.getChannelData(0);
-            for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
-            noise.buffer = buffer;
-            
-            const filter = offlineCtx.createBiquadFilter();
-            const gain = offlineCtx.createGain();
-            
-            osc.type = 'triangle';
-            
-            if(type === "trap") {
-                osc.frequency.setValueAtTime(300, time);
-                filter.type = 'highpass'; filter.frequency.value = 1800;
-                gain.gain.setValueAtTime(2.0, time);
-                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
-            } else {
-                osc.frequency.setValueAtTime(380, time);
-                filter.type = 'bandpass'; filter.frequency.value = 1400;
-                gain.gain.setValueAtTime(3.0, time);
-                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
-            }
-            gain.gain.linearRampToValueAtTime(0, time + 0.25);
+        function triggerSnare(time, style = "phonk") {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const filter = audioCtx.createBiquadFilter();
 
-            noise.connect(filter); filter.connect(gain);
-            osc.connect(gain); gain.connect(masterGain);
-            
-            noise.start(time); noise.stop(time + 0.25);
-            osc.start(time); osc.stop(time + 0.25);
-        }
+            // Sola sağa kaçan stereo hissi için gürültü kaynağı yerine direkt kare dalga frekans modülasyonu
+            osc.type = style === "phonk" ? "square" : "triangle";
+            osc.frequency.setValueAtTime(style === "phonk" ? 420 : 280, time);
+            osc.frequency.linearRampToValueAtTime(100, time + 0.1);
 
-        function synthHat(time, isOpen=false) {
-            const osc1 = offlineCtx.createOscillator();
-            const osc2 = offlineCtx.createOscillator();
-            const filter = offlineCtx.createBiquadFilter();
-            const gain = offlineCtx.createGain();
-            
-            osc1.type = 'square'; osc2.type = 'square';
-            osc1.frequency.value = 5432; osc2.frequency.value = 7654;
-            filter.type = 'bandpass'; filter.frequency.value = 9500;
-            
-            const dur = isOpen ? 0.35 : 0.05;
-            gain.gain.setValueAtTime(1.2, time);
-            gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
-            gain.gain.linearRampToValueAtTime(0, time + dur + 0.01);
-            
-            osc1.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(masterGain);
-            osc1.start(time); osc2.start(time); 
-            osc1.stop(time + dur + 0.02); osc2.stop(time + dur + 0.02);
-        }
+            filter.type = "bandpass";
+            filter.frequency.setValueAtTime(1200, time);
 
-        function synthImpact(time) {
-            const osc = offlineCtx.createOscillator();
-            const gain = offlineCtx.createGain();
-            const dist = offlineCtx.createWaveShaper();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(60, time);
-            osc.frequency.exponentialRampToValueAtTime(10, time + 2.5);
-            dist.curve = distEarrape;
-            gain.gain.setValueAtTime(2.5, time);
-            gain.gain.exponentialRampToValueAtTime(0.001, time + 2.4);
-            gain.gain.linearRampToValueAtTime(0, time + 2.5);
-            osc.connect(dist); dist.connect(gain); gain.connect(masterGain);
-            osc.start(time); osc.stop(time + 2.5);
-        }
-
-        function synthRiser(time, dur=4) {
-            const osc = offlineCtx.createOscillator();
-            const gain = offlineCtx.createGain();
-            osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(60, time);
-            osc.frequency.exponentialRampToValueAtTime(1800, time + dur - 0.1);
-            gain.gain.setValueAtTime(0.001, time);
-            gain.gain.exponentialRampToValueAtTime(1.2, time + dur - 0.1);
-            gain.gain.linearRampToValueAtTime(0, time + dur);
-            osc.connect(gain); gain.connect(masterGain);
-            osc.start(time); osc.stop(time + dur);
-        }
-
-        function synthReeseBass(freq, time, dur) {
-            const osc1 = offlineCtx.createOscillator();
-            const osc2 = offlineCtx.createOscillator();
-            const filter = offlineCtx.createBiquadFilter();
-            const dist = offlineCtx.createWaveShaper();
-            const gain = offlineCtx.createGain();
-
-            osc1.type = 'sawtooth'; osc2.type = 'sawtooth';
-            osc1.frequency.value = freq; osc2.frequency.value = freq * 1.018;
-
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(250, time);
-            filter.frequency.linearRampToValueAtTime(1300, time + dur * 0.4);
-
-            dist.curve = distHeavy;
-            gain.gain.setValueAtTime(0, time);
-            gain.gain.linearRampToValueAtTime(1.6, time + 0.08);
-            gain.gain.exponentialRampToValueAtTime(0.001, time + dur - 0.02);
-            gain.gain.linearRampToValueAtTime(0, time + dur);
-
-            osc1.connect(filter); osc2.connect(filter); filter.connect(dist); dist.connect(gain); gain.connect(masterGain);
-            osc1.start(time); osc2.start(time); 
-            osc1.stop(time + dur); osc2.stop(time + dur);
-        }
-
-        function synthSubBass(freq, time, dur) {
-            const osc = offlineCtx.createOscillator();
-            const gain = offlineCtx.createGain();
-            const dist = offlineCtx.createWaveShaper();
-            
-            osc.type = 'sine';
-            osc.frequency.setValueAtTime(freq * 1.4, time); 
-            osc.frequency.exponentialRampToValueAtTime(freq, time + 0.08);
-
-            dist.curve = distEarrape; 
-            gain.gain.setValueAtTime(3.5, time); 
-            gain.gain.linearRampToValueAtTime(1.2, time + 0.15); 
-            gain.gain.exponentialRampToValueAtTime(0.001, time + dur - 0.02);
-            gain.gain.linearRampToValueAtTime(0, time + dur);
-
-            osc.connect(dist); dist.connect(gain); gain.connect(masterGain);
-            osc.start(time); osc.stop(time + dur);
-        }
-
-        function synthPhonkBell(freq, time, type="dark") {
-            const osc1 = offlineCtx.createOscillator();
-            const mod = offlineCtx.createOscillator();
-            const modGain = offlineCtx.createGain();
-            const gain = offlineCtx.createGain();
-            const dist = offlineCtx.createWaveShaper();
-
-            osc1.type = 'square'; mod.type = 'square';
-            osc1.frequency.setValueAtTime(freq, time);
-            
-            if(type === "dark") {
-                mod.frequency.setValueAtTime(freq * 2.48, time); 
-                modGain.gain.setValueAtTime(freq * 0.9, time);
-                dist.curve = distEarrape;
-            } else {
-                mod.frequency.setValueAtTime(freq * 3.12, time); 
-                modGain.gain.setValueAtTime(freq * 1.3, time);
-                dist.curve = distHeavy;
-            }
-
-            mod.connect(modGain); modGain.connect(osc1.frequency);
-            
-            gain.gain.setValueAtTime(2.8, time);
-            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.38);
-            gain.gain.linearRampToValueAtTime(0, time + 0.4);
-
-            osc1.connect(dist); dist.connect(gain); gain.connect(masterGain);
-            
-            osc1.start(time); mod.start(time); 
-            osc1.stop(time + 0.4); mod.stop(time + 0.4);
-        }
-
-        function synthBrass(freq, time, dur) {
-            const osc = offlineCtx.createOscillator();
-            const filter = offlineCtx.createBiquadFilter();
-            const gain = offlineCtx.createGain();
-            osc.type = 'sawtooth';
-            osc.frequency.value = freq;
-            
-            filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(200, time);
-            filter.frequency.exponentialRampToValueAtTime(2800, time + 0.06); 
-            filter.frequency.exponentialRampToValueAtTime(250, time + dur);
-            
-            gain.gain.setValueAtTime(0, time);
-            gain.gain.linearRampToValueAtTime(1.2, time + 0.03);
-            gain.gain.exponentialRampToValueAtTime(0.01, time + dur - 0.02);
-            gain.gain.linearRampToValueAtTime(0, time + dur);
+            gain.gain.setValueAtTime(2.2, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.18);
+            gain.gain.linearRampToValueAtTime(0, time + 0.2);
 
             osc.connect(filter); filter.connect(gain); gain.connect(masterGain);
-            osc.start(time); osc.stop(time + dur);
+            osc.start(time); osc.stop(time + 0.22);
         }
 
-        // --- ARANJMAN MOTORU ---
-        const scales = {
-            phrygian: [65.41, 69.30, 77.78, 87.31, 98.00, 103.83, 116.54] 
-        };
-        
-        function arrangeTrack() {
-            log("Yapay Zeka Aranjman Motoru Çalışıyor...");
-            const root = scales.phrygian;
-            const totalSteps = Math.floor(DURATION / STEP_TIME);
-            let section = 0; 
-            let currentBassFreq = root[0];
-            let melodySeed = [root[3]*4, null, root[0]*4, null, root[1]*4, root[0]*4, null, root[3]*4];
+        function triggerHat(time, open = false) {
+            const osc = audioCtx.createOscillator();
+            const filter = audioCtx.createBiquadFilter();
+            const gain = audioCtx.createGain();
+
+            osc.type = "triangle";
+            osc.frequency.setValueAtTime(10000, time);
+
+            filter.type = "highpass";
+            filter.frequency.setValueAtTime(7000, time);
+
+            const duration = open ? 0.28 : 0.04;
+            gain.gain.setValueAtTime(0.8, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+            gain.gain.linearRampToValueAtTime(0, time + duration + 0.01);
+
+            osc.connect(filter); filter.connect(gain); gain.connect(masterGain);
+            osc.start(time); osc.stop(time + duration + 0.05);
+        }
+
+        function triggerSubBass(freq, time, dur) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            const dist = audioCtx.createWaveShaper();
+
+            osc.type = "sine";
+            // Kayan Bas (Glide / Portamento Simülasyonu)
+            osc.frequency.setValueAtTime(freq * 1.3, time);
+            osc.frequency.exponentialRampToValueAtTime(freq, time + 0.07);
+
+            dist.curve = extremeDist;
+            gain.gain.setValueAtTime(3.8, time);
+            gain.gain.linearRampToValueAtTime(1.5, time + 0.12); // Yanıltıcı sidechain baskısı
+            gain.gain.exponentialRampToValueAtTime(0.001, time + dur - 0.02);
+            gain.gain.linearRampToValueAtTime(0, time + dur);
+
+            osc.connect(dist); dist.connect(gain); gain.connect(masterGain);
+            osc.start(time); osc.stop(time + dur + 0.05);
+        }
+
+        function triggerReese(freq, time, dur) {
+            const osc1 = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator();
+            const filter = audioCtx.createBiquadFilter();
+            const dist = audioCtx.createWaveShaper();
+            const gain = audioCtx.createGain();
+
+            osc1.type = "sawtooth"; osc2.type = "sawtooth";
+            osc1.frequency.value = freq;
+            osc2.frequency.value = freq * 1.02; // Detuning genişliği
+
+            filter.type = "lowpass";
+            filter.frequency.setValueAtTime(150, time);
+            filter.frequency.exponentialRampToValueAtTime(1100, time + dur * 0.5);
+
+            dist.curve = heavyDist;
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(1.5, time + 0.05);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + dur - 0.02);
+            gain.gain.linearRampToValueAtTime(0, time + dur);
+
+            osc1.connect(filter); osc2.connect(filter);
+            filter.connect(dist); dist.connect(gain); gain.connect(masterGain);
+            osc1.start(time); osc2.start(time);
+            osc1.stop(time + dur + 0.05); osc2.stop(time + dur + 0.05);
+        }
+
+        function triggerCowbell(freq, time, highClang = false) {
+            const osc = audioCtx.createOscillator();
+            const mod = audioCtx.createOscillator();
+            const modGain = audioCtx.createGain();
+            const gain = audioCtx.createGain();
+            const dist = audioCtx.createWaveShaper();
+
+            osc.type = "square"; mod.type = "square";
+            osc.frequency.setValueAtTime(freq, time);
             
-            for(let step = 0; step < totalSteps; step++) {
-                let time = step * STEP_TIME;
-                let measure = Math.floor(step / 16);
-                let step16 = step % 16;
+            mod.frequency.setValueAtTime(highClang ? freq * 3.45 : freq * 2.45, time);
+            modGain.gain.setValueAtTime(highClang ? freq * 1.4 : freq * 0.8, time);
 
-                if(measure === 0 && step16 === 0) { section = 0; log("SECTION: INTRO"); synthImpact(time); }
-                if(measure === 8 && step16 === 0) { section = 1; log("SECTION: BUILD-UP"); }
-                if(measure === 16 && step16 === 0) { section = 2; log("SECTION: DROP 1 (EZİCİ)"); synthImpact(time); }
-                if(measure === 32 && step16 === 0) { section = 3; log("SECTION: BREAKDOWN"); }
-                if(measure === 40 && step16 === 0) { section = 4; log("SECTION: DROP 2 (KAOS)"); synthImpact(time); }
-                if(measure === 56 && step16 === 0) { section = 5; log("SECTION: OUTRO"); }
+            mod.connect(modGain); modGain.connect(osc.frequency);
 
-                if(measure % 4 === 0 && step16 === 0) {
-                    const changes = [root[0], root[5], root[3], root[0]];
-                    currentBassFreq = changes[(measure / 4) % 4];
-                }
+            dist.curve = highClang ? heavyDist : extremeDist;
+            gain.gain.setValueAtTime(2.6, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.35);
+            gain.gain.linearRampToValueAtTime(0, time + 0.38);
 
-                // DROPS
-                if(section === 2 || section === 4) {
-                    if(step16 === 0 || step16 === 6 || step16 === 11) synthKick(time, "808");
-                    if(step16 === 0) synthKick(time, "punch"); 
-                    if(step16 === 4 || step16 === 12) synthSnare(time, "trap");
-                    if(step16 === 15 && Math.random() > 0.5) synthSnare(time, "phonk"); 
+            osc.connect(dist); dist.connect(gain); gain.connect(masterGain);
+            osc.start(time); mod.start(time);
+            osc.stop(time + 0.4); mod.stop(time + 0.4);
+        }
+
+        function triggerBrass(freq, time, dur) {
+            const osc = audioCtx.createOscillator();
+            const filter = audioCtx.createBiquadFilter();
+            const gain = audioCtx.createGain();
+
+            osc.type = "sawtooth";
+            osc.frequency.value = freq;
+
+            filter.type = "lowpass";
+            filter.frequency.setValueAtTime(100, time);
+            filter.frequency.exponentialRampToValueAtTime(2400, time + 0.05);
+            filter.frequency.linearRampToValueAtTime(300, time + dur);
+
+            gain.gain.setValueAtTime(0, time);
+            gain.gain.linearRampToValueAtTime(1.0, time + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+
+            osc.connect(filter); filter.connect(gain); gain.connect(masterGain);
+            osc.start(time); osc.stop(time + dur + 0.05);
+        }
+
+        function triggerImpact(time) {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.type = "sawtooth";
+            osc.frequency.setValueAtTime(55, time);
+            osc.frequency.linearRampToValueAtTime(10, time + 2.0);
+            gain.gain.setValueAtTime(1.8, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 1.9);
+            osc.connect(gain); gain.connect(masterGain);
+            osc.start(time); osc.stop(time + 2.0);
+        }
+
+        // --- ARANJMAN VE ADIM PLANLAYICI (SCHEDULER) ---
+        const scale = [65.41, 69.30, 77.78, 87.31, 98.00, 103.83, 116.54]; // C Phrygian
+        let currentBassFreq = scale[0];
+        let melodySeed = [scale[3]*4, null, scale[0]*4, null, scale[1]*4, scale[0]*4, null, scale[4]*4];
+
+        function stepScheduler() {
+            while (nextNoteTime < audioCtx.currentTime + 0.1) {
+                schedulePattern(currentStep, nextNoteTime);
+                
+                // Zaman çizgisi ilerlemesi
+                nextNoteTime += STEP_TIME;
+                currentStep++;
+                if (currentStep >= 16) {
+                    currentStep = 0;
+                    measure++;
                     
-                    if(Math.random() > 0.82) { 
-                        synthHat(time); synthHat(time + STEP_TIME / 2);
-                    } else if(step16 % 2 === 0) {
-                        synthHat(time, step16 === 14);
+                    // Ölçüye göre dinamik akor değişimi
+                    if(measure % 4 === 0) {
+                        const chordProg = [scale[0], scale[3], scale[2], scale[1]];
+                        currentBassFreq = chordProg[(measure / 4) % chordProg.length];
                     }
-                    
-                    if(step16 === 0 || step16 === 6 || step16 === 11) {
-                        synthSubBass(currentBassFreq, time, 0.58);
-                    }
-                }
 
-                // BUILD UP
-                if(section === 1) {
-                    if(step16 % 4 === 0) synthKick(time, "punch");
-                    if(measure === 15 && step16 === 0) synthRiser(time, 4); 
-                    if(measure >= 14 && step16 % 2 === 0) synthSnare(time, "trap"); 
-                }
-
-                // BREAKDOWN
-                if(section === 3) {
-                    if(step16 === 0) synthReeseBass(currentBassFreq, time, 1.9); 
-                    if(step16 % 8 === 0) synthHat(time, true);
-                }
-
-                // MELODIES & BRASS
-                if(section !== 3 && section !== 5) {
-                    let note = melodySeed[step16 % 8];
-                    if(note) {
-                        let type = (section === 4) ? "sharp" : "dark"; 
-                        synthPhonkBell(note, time, type);
-                    }
-                    if(step16 === 0 && Math.random() > 0.45) synthBrass(currentBassFreq * 4, time, 0.45);
+                    // Dinamik Sahne (Section) Yönetimi
+                    if(measure === 0)  { songSection = 0; log("SAHNE: INTRO GİRİŞİ", true); triggerImpact(nextNoteTime); }
+                    if(measure === 6)  { songSection = 1; log("SAHNE: GERİLİM (BUILD-UP)", true); }
+                    if(measure === 14) { songSection = 2; log("SAHNE: DROP 1 (EZİCİ SUB-BASS)", true); triggerImpact(nextNoteTime); }
+                    if(measure === 26) { songSection = 3; log("SAHNE: ARASÖZ (REESE BREAKDOWN)", true); }
+                    if(measure === 34) { songSection = 4; log("SAHNE: DROP 2 (KAOTİK COWBELI)", true); triggerImpact(nextNoteTime); }
+                    if(measure === 46) { songSection = 5; log("SAHNE: OUTRO KAPANIŞ", true); }
                 }
             }
-            log("Aranjman Tamamlandı. İşlemci Buffer Havuzuna Aktarılıyor...");
+            schedulerTimerId = setTimeout(stepScheduler, 25);
         }
 
-        // --- WAV COMPILER AUDIO CONTEXT ---
-        function bufferToWav(abuffer) {
-            let numOfChan = abuffer.numberOfChannels,
-                length = abuffer.length * numOfChan * 2 + 44,
-                buffer = new ArrayBuffer(length),
-                view = new DataView(buffer),
-                channels = [], i, sample,
-                offset = 0, pos = 0;
+        function schedulePattern(step, time) {
+            // DRUM KIT KATMANLARI
+            if (songSection === 2 || songSection === 4) { // DROPS aktifken
+                if (step === 0 || step === 6 || step === 10) triggerKick(time, "808");
+                if (step === 0) triggerKick(time, "punch");
+                if (step === 4 || step === 12) triggerSnare(time, "phonk");
+                if (step === 14 && Math.random() > 0.6) triggerSnare(time, "trap");
 
-            function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
-            function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
-
-            setUint32(0x46464952); 
-            setUint32(length - 8); 
-            setUint32(0x45564157); 
-            setUint32(0x20746d66); 
-            setUint32(16); 
-            setUint16(1); 
-            setUint16(numOfChan);
-            setUint32(abuffer.sampleRate);
-            setUint32(abuffer.sampleRate * 2 * numOfChan); 
-            setUint16(numOfChan * 2); 
-            setUint16(16); 
-            setUint32(0x61746164); 
-            setUint32(length - pos - 4); 
-
-            for(i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
-
-            while(pos < length) {
-                for(i = 0; i < numOfChan; i++) {
-                    sample = Math.max(-1, Math.min(1, channels[i][offset])); 
-                    sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0;
-                    view.setInt16(pos, sample, true);
-                    pos += 2;
+                if (Math.random() > 0.8) { // Hızlı Taramalı Hi-Hat Roll'ları
+                    triggerHat(time); triggerHat(time + STEP_TIME / 2);
+                } else if (step % 2 === 0) {
+                    triggerHat(time, step === 14);
                 }
-                offset++;
+
+                if (step === 0 || step === 6 || step === 10) {
+                    triggerSubBass(currentBassFreq, time, 0.55);
+                }
             }
-            return buffer;
+
+            if (songSection === 1) { // BUILD-UP döngüsü
+                if (step % 4 === 0) triggerKick(time, "punch");
+                if (measure >= 12 && step % 2 === 0) triggerSnare(time, "trap");
+            }
+
+            if (songSection === 3) { // BREAKDOWN dinginliği
+                if (step === 0) triggerReese(currentBassFreq, time, 2.0);
+                if (step % 8 === 0) triggerHat(time, true);
+            }
+
+            // MELODİ VE ENSTRÜMANTASYON KATMANI
+            if (songSection !== 3 && songSection !== 5) {
+                let note = melodySeed[step % 8];
+                if (note) {
+                    let isKaos = (songSection === 4);
+                    triggerCowbell(note, time, isKaos);
+                }
+                if (step === 0 && Math.random() > 0.5) {
+                    triggerBrass(currentBassFreq * 3, time, 0.6);
+                }
+            }
         }
 
-        function startRender() {
-            const btn = document.getElementById('renderBtn');
-            btn.disabled = true;
-            btn.innerText = "DERLENİYOR... BEKLEYİN!";
-            document.getElementById('console').innerHTML = ''; 
+        // --- MASTER STREAM RECORDING ENGINE ---
+        function initAndRecord() {
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('stopBtn').disabled = false;
+            document.getElementById('progressBox').style.display = "block";
+            document.getElementById('console').innerHTML = '';
+
+            log("AudioContext Stream Hattı Kuruluyor...");
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            audioCtx = new AudioContextClass({ sampleRate: SAMPLE_RATE });
+
+            // Master Efekt Zinciri
+            masterGain = audioCtx.createGain();
+            masterGain.gain.setValueAtTime(0.85, audioCtx.currentTime);
+
+            dcBlocker = audioCtx.createBiquadFilter();
+            dcBlocker.type = "highpass";
+            dcBlocker.frequency.value = 25; // 25Hz altını tıraşla (Uğultu önleyici filtre)
+
+            mainLimiter = audioCtx.createDynamicsCompressor();
+            mainLimiter.threshold.setValueAtTime(-14, audioCtx.currentTime);
+            mainLimiter.ratio.setValueAtTime(16, audioCtx.currentTime);
+            mainLimiter.attack.setValueAtTime(0.002, audioCtx.currentTime);
+
+            // Bağlantı Şeması
+            masterGain.connect(dcBlocker);
+            dcBlocker.connect(mainLimiter);
+            mainLimiter.connect(audioCtx.destination); // Hoparlöre ver (Dinleyebilmek için)
+
+            // Akış Yakalama Düğümü (Stream Capture Node)
+            streamDest = audioCtx.createMediaStreamDestination();
+            mainLimiter.connect(streamDest);
+
+            // MediaRecorder ile Veri Akışını Yakalama
+            recordedChunks = [];
+            mediaRecorder = new MediaRecorder(streamDest.stream);
             
-            setTimeout(() => {
-                try {
-                    log(`OfflineAudioContext Başlatılıyor (${SAMPLE_RATE}Hz)...`);
-                    offlineCtx = new OfflineAudioContext(2, SAMPLE_RATE * DURATION, SAMPLE_RATE);
-                    
-                    masterGain = offlineCtx.createGain();
-                    masterGain.gain.value = 0.85;
-                    
-                    dcBlocker = offlineCtx.createBiquadFilter();
-                    dcBlocker.type = 'highpass'; dcBlocker.frequency.value = 22;
+            mediaRecorder.ondataavailable = (e) => {
+                if (e.data && e.data.size > 0) recordedChunks.push(e.data);
+            };
 
-                    compressor = offlineCtx.createDynamicsCompressor();
-                    compressor.threshold.value = -14;
-                    compressor.ratio.value = 16; 
-                    compressor.attack.value = 0.002;
+            mediaRecorder.onstop = async () => {
+                log("Veri paketleri toplandı. WAV binary kodlaması yapılıyor...");
+                await compileWavFile();
+            };
 
-                    masterGain.connect(dcBlocker); dcBlocker.connect(compressor); compressor.connect(offlineCtx.destination);
+            // Sistemi Çalıştır
+            mediaRecorder.start();
+            nextNoteTime = audioCtx.currentTime + 0.1;
+            stepScheduler();
+            log("Kayıt Akışı Başlatıldı. Sinyaller Yakalanıyor...", true);
 
-                    arrangeTrack();
-
-                    log("Rendering motoru asenkron döngüye girdi, WAV derleniyor...");
-                    
-                    offlineCtx.startRendering().then((renderedBuffer) => {
-                        log("Sentez Başarılı! Binary veriler paketleniyor...", "success");
-                        
-                        const wavData = bufferToWav(renderedBuffer);
-                        const blob = new Blob([wavData], { type: 'audio/wav' });
-                        const url = URL.createObjectURL(blob);
-                        
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = `EXCALIBUR_PHONK_FIXED_${Date.now()}.wav`;
-                        document.body.appendChild(a);
-                        a.click();
-                        document.body.removeChild(a);
-
-                        log(`İŞLEM TAMAMLANDI: ${a.download}`, "success");
-                        btn.innerText = "YENİDEN DERLE VE İNDİR";
-                        btn.disabled = false;
-                    }).catch((renderErr) => {
-                        log(`Render Kilitlenme Hatası: ${renderErr.message}`, "error");
-                        btn.innerText = "HATA OLUŞTU";
-                        btn.disabled = false;
-                    });
-
-                } catch (err) {
-                    log(`Sistem Hatası: ${err.message}`, "error");
-                    btn.innerText = "HATA OLUŞTU";
-                    btn.disabled = false;
+            // Arayüz Sayaç Döngüsü
+            const startTime = Date.now();
+            const uiTimer = setInterval(() => {
+                if (!mediaRecorder || mediaRecorder.state === "inactive") {
+                    clearInterval(uiTimer);
+                    return;
                 }
-            }, 200); // UI'ın donmadan önce "Derleniyor" yazmasını garantiye alan gecikme havuzu
+                let elapsed = (Date.now() - startTime) / 1000;
+                document.getElementById('timer').innerText = elapsed.toFixed(1);
+
+                if (elapsed >= TARGET_DURATION) {
+                    clearInterval(uiTimer);
+                    stopRecordingAndExport();
+                }
+            }, 100);
+        }
+
+        function stopRecordingAndExport() {
+            log("Hedef süreye ulaşıldı. Kayıt donduruluyor...");
+            cleanAudioEngine();
+        }
+
+        function stopRecordingEarly() {
+            log("Kayıt kullanıcı tarafından erken kesildi. Dosya çıkartılıyor...");
+            cleanAudioEngine();
+        }
+
+        function cleanAudioEngine() {
+            clearTimeout(schedulerTimerId);
+            if (mediaRecorder && mediaRecorder.state !== "inactive") {
+                mediaRecorder.stop();
+            }
+            document.getElementById('stopBtn').disabled = true;
+        }
+
+        // --- BINARY WAV PACKAGER (Saf Veri Mühendisliği) ---
+        async function compileWavFile() {
+            // Toplanan blob parçalarını tek bir büyük ArrayBuffer'a dönüştür
+            const superBlob = new Blob(recordedChunks);
+            const arrayBuffer = await superBlob.arrayBuffer();
+            
+            // Gerçek PCM kanallarına ayıklamak için geçici bir AudioContext yardımı alıyoruz
+            const tempCtx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            tempCtx.decodeAudioData(arrayBuffer, (decodedBuffer) => {
+                log("PCM Çözümlemesi Bitti. RIFF Standartlarına Uygun WAV Header Enjekte Ediliyor...");
+                
+                let numOfChan = decodedBuffer.numberOfChannels,
+                    length = decodedBuffer.length * numOfChan * 2 + 44,
+                    wavBuffer = new ArrayBuffer(length),
+                    view = new DataView(wavBuffer),
+                    channels = [], i, sample, offset = 0, pos = 0;
+
+                function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+                function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
+
+                // RIFF Çerçeve Başlık Dosyası Yapılandırması
+                setUint32(0x46464952); // "RIFF" Kodu
+                setUint32(length - 8); 
+                setUint32(0x45564157); // "WAVE" Format Kodu
+                setUint32(0x20746d66); // "fmt " Alt Bloğu
+                setUint32(16);         // Chunk Boyutu
+                setUint16(1);          // Linear PCM Modu
+                setUint16(numOfChan);
+                setUint32(decodedBuffer.sampleRate);
+                setUint32(decodedBuffer.sampleRate * 2 * numOfChan); 
+                setUint16(numOfChan * 2); 
+                setUint16(16);         // 16-Bit Derinlik
+                setUint32(0x61746164); // "data" Bloğu Girişi
+                setUint32(length - pos - 4); 
+
+                for(i = 0; i < numOfChan; i++) channels.push(decodedBuffer.getChannelData(i));
+
+                // Ham Float32 Sinüs Verilerini 16-Bit İşaretli Tam Sayılara (Int16) Çevirme Döngüsü
+                while(pos < length) {
+                    for(i = 0; i < numOfChan; i++) {
+                        sample = Math.max(-1, Math.min(1, channels[i][offset])); 
+                        sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0;
+                        view.setInt16(pos, sample, true);
+                        pos += 2;
+                    }
+                    offset++;
+                }
+
+                // Web Dosya Tetiklemesi
+                const finalBlob = new Blob([wavBuffer], { type: 'audio/wav' });
+                const finalUrl = URL.createObjectURL(finalBlob);
+                
+                const downloader = document.createElement('a');
+                downloader.href = finalUrl;
+                downloader.download = `STREAM_PHONK_${Date.now()}.wav`;
+                document.body.appendChild(downloader);
+                downloader.click();
+                document.body.removeChild(downloader);
+
+                log(`BAŞARIYLA DOSYAYA DÖKÜLDÜ: ${downloader.download}`, true);
+                document.getElementById('startBtn').disabled = false;
+                tempCtx.close();
+            }, (err) => {
+                log(`Sinyal Çözümleme Hatası: ${err.message}`);
+                document.getElementById('startBtn').disabled = false;
+                tempCtx.close();
+            });
         }
     </script>
 </body>
