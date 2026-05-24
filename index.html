@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PHONK COMPILER PRO</title>
+    <title>PHONK COMPILER v2 [FIXED]</title>
     <style>
         :root { --bg: #000; --accent: #ff003c; --text: #fff; }
         body { background: var(--bg); color: var(--text); font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
@@ -22,22 +22,21 @@
 <body>
 
     <div class="container">
-        <h1>PHONK WAV COMPILER</h1>
-        <p>OfflineAudioContext ile 120 Saniyelik Saf Algoritmik Sentez</p>
+        <h1>PHONK COMPILER V2</h1>
+        <p>Kilitlenme Sorunu Giderilmiş 120 Saniyelik Saf Algoritmik Render Motoru</p>
         
         <button id="renderBtn" onclick="startRender()">TRACK OLUŞTUR VE İNDİR</button>
         
         <div class="console" id="console">
-            <div class="log-line">Sistem Hazır. İşlemci Bekleniyor...</div>
+            <div class="log-line">Sistem Hazır. İşlemci Girişi Bekleniyor...</div>
         </div>
     </div>
 
     <script>
-        // --- 1. CORE RENDER ENGINE ---
-        const DURATION = 120; // 2 Dakika
+        const DURATION = 120; 
         const SAMPLE_RATE = 44100;
         const TEMPO = 135;
-        const STEP_TIME = (60 / TEMPO) / 4; // 16th note
+        const STEP_TIME = (60 / TEMPO) / 4; 
         
         let offlineCtx;
         let masterGain, compressor, dcBlocker;
@@ -51,37 +50,36 @@
             cons.scrollTop = cons.scrollHeight;
         }
 
-        // --- 2. DISTORTION & FX ALGORITHMS ---
         function createDistCurve(amount) {
             let n = 44100, curve = new Float32Array(n);
             for(let i=0; i<n; i++) curve[i] = Math.tanh((i / n - 0.5) * amount);
             return curve;
         }
         
-        // Yeniden Gelen Ezici Distortion'lar
-        const distEarrape = createDistCurve(100); 
-        const distHeavy = createDistCurve(60);
-        const distMed = createDistCurve(20);
+        const distEarrape = createDistCurve(120); // Daha da ezici hale getirildi
+        const distHeavy = createDistCurve(70);
+        const distMed = createDistCurve(25);
 
-        // --- 3. THE 30-INSTRUMENT SYNTHESIS ENGINE ---
+        // --- ENSTRÜMAN MOTORLARI (STRICT STOP BINDINGS) ---
         
-        // 3.1 DRUMS
         function synthKick(time, type="808") {
             const osc = offlineCtx.createOscillator();
             const gain = offlineCtx.createGain();
             const dist = offlineCtx.createWaveShaper();
             
             if(type === "808") {
-                osc.frequency.setValueAtTime(120, time);
-                osc.frequency.exponentialRampToValueAtTime(20, time + 0.15);
+                osc.frequency.setValueAtTime(130, time);
+                osc.frequency.exponentialRampToValueAtTime(25, time + 0.15);
                 gain.gain.setValueAtTime(5.0, time);
-                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.5);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.45);
+                gain.gain.linearRampToValueAtTime(0, time + 0.5);
                 dist.curve = distHeavy;
-            } else if(type === "punch") {
-                osc.frequency.setValueAtTime(250, time);
-                osc.frequency.exponentialRampToValueAtTime(40, time + 0.05);
-                gain.gain.setValueAtTime(3.0, time);
-                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.15);
+            } else {
+                osc.frequency.setValueAtTime(260, time);
+                osc.frequency.exponentialRampToValueAtTime(45, time + 0.05);
+                gain.gain.setValueAtTime(3.5, time);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.14);
+                gain.gain.linearRampToValueAtTime(0, time + 0.15);
                 dist.curve = distMed;
             }
             
@@ -92,8 +90,9 @@
         function synthSnare(time, type="trap") {
             const osc = offlineCtx.createOscillator();
             const noise = offlineCtx.createBufferSource();
-            const buffer = offlineCtx.createBuffer(1, offlineCtx.sampleRate * 0.2, offlineCtx.sampleRate);
-            for (let i = 0; i < buffer.getChannelData(0).length; i++) buffer.getChannelData(0)[i] = Math.random() * 2 - 1;
+            const buffer = offlineCtx.createBuffer(1, SAMPLE_RATE * 0.3, SAMPLE_RATE);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < data.length; i++) data[i] = Math.random() * 2 - 1;
             noise.buffer = buffer;
             
             const filter = offlineCtx.createBiquadFilter();
@@ -103,19 +102,22 @@
             
             if(type === "trap") {
                 osc.frequency.setValueAtTime(300, time);
-                filter.type = 'highpass'; filter.frequency.value = 2000;
+                filter.type = 'highpass'; filter.frequency.value = 1800;
                 gain.gain.setValueAtTime(2.0, time);
                 gain.gain.exponentialRampToValueAtTime(0.001, time + 0.2);
-            } else if(type === "phonk") { // Daha teneke gibi bir snare
-                osc.frequency.setValueAtTime(400, time);
-                filter.type = 'bandpass'; filter.frequency.value = 1500;
+            } else {
+                osc.frequency.setValueAtTime(380, time);
+                filter.type = 'bandpass'; filter.frequency.value = 1400;
                 gain.gain.setValueAtTime(3.0, time);
-                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, time + 0.12);
             }
+            gain.gain.linearRampToValueAtTime(0, time + 0.25);
 
             noise.connect(filter); filter.connect(gain);
             osc.connect(gain); gain.connect(masterGain);
-            noise.start(time); osc.start(time);
+            
+            noise.start(time); noise.stop(time + 0.25);
+            osc.start(time); osc.stop(time + 0.25);
         }
 
         function synthHat(time, isOpen=false) {
@@ -126,15 +128,16 @@
             
             osc1.type = 'square'; osc2.type = 'square';
             osc1.frequency.value = 5432; osc2.frequency.value = 7654;
+            filter.type = 'bandpass'; filter.frequency.value = 9500;
             
-            filter.type = 'bandpass'; filter.frequency.value = 10000;
-            
-            const dur = isOpen ? 0.4 : 0.05;
+            const dur = isOpen ? 0.35 : 0.05;
             gain.gain.setValueAtTime(1.2, time);
             gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+            gain.gain.linearRampToValueAtTime(0, time + dur + 0.01);
             
             osc1.connect(filter); osc2.connect(filter); filter.connect(gain); gain.connect(masterGain);
-            osc1.start(time); osc2.start(time); osc1.stop(time + dur); osc2.stop(time + dur);
+            osc1.start(time); osc2.start(time); 
+            osc1.stop(time + dur + 0.02); osc2.stop(time + dur + 0.02);
         }
 
         function synthImpact(time) {
@@ -142,29 +145,29 @@
             const gain = offlineCtx.createGain();
             const dist = offlineCtx.createWaveShaper();
             osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(50, time);
-            osc.frequency.exponentialRampToValueAtTime(1, time + 3);
+            osc.frequency.setValueAtTime(60, time);
+            osc.frequency.exponentialRampToValueAtTime(10, time + 2.5);
             dist.curve = distEarrape;
-            gain.gain.setValueAtTime(2.0, time);
-            gain.gain.exponentialRampToValueAtTime(0.001, time + 3);
+            gain.gain.setValueAtTime(2.5, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 2.4);
+            gain.gain.linearRampToValueAtTime(0, time + 2.5);
             osc.connect(dist); dist.connect(gain); gain.connect(masterGain);
-            osc.start(time); osc.stop(time + 3);
+            osc.start(time); osc.stop(time + 2.5);
         }
 
         function synthRiser(time, dur=4) {
             const osc = offlineCtx.createOscillator();
             const gain = offlineCtx.createGain();
             osc.type = 'sawtooth';
-            osc.frequency.setValueAtTime(50, time);
-            osc.frequency.exponentialRampToValueAtTime(2000, time + dur);
+            osc.frequency.setValueAtTime(60, time);
+            osc.frequency.exponentialRampToValueAtTime(1800, time + dur - 0.1);
             gain.gain.setValueAtTime(0.001, time);
-            gain.gain.exponentialRampToValueAtTime(1.0, time + dur - 0.1);
+            gain.gain.exponentialRampToValueAtTime(1.2, time + dur - 0.1);
             gain.gain.linearRampToValueAtTime(0, time + dur);
             osc.connect(gain); gain.connect(masterGain);
             osc.start(time); osc.stop(time + dur);
         }
 
-        // 3.2 BASSES
         function synthReeseBass(freq, time, dur) {
             const osc1 = offlineCtx.createOscillator();
             const osc2 = offlineCtx.createOscillator();
@@ -173,20 +176,21 @@
             const gain = offlineCtx.createGain();
 
             osc1.type = 'sawtooth'; osc2.type = 'sawtooth';
-            osc1.frequency.value = freq; osc2.frequency.value = freq * 1.015; // Detune (Karanlık genişlik)
+            osc1.frequency.value = freq; osc2.frequency.value = freq * 1.018;
 
             filter.type = 'lowpass';
-            filter.frequency.setValueAtTime(300, time);
-            filter.frequency.linearRampToValueAtTime(1500, time + dur*0.5);
+            filter.frequency.setValueAtTime(250, time);
+            filter.frequency.linearRampToValueAtTime(1300, time + dur * 0.4);
 
             dist.curve = distHeavy;
-            
             gain.gain.setValueAtTime(0, time);
-            gain.gain.linearRampToValueAtTime(1.5, time + 0.1);
-            gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+            gain.gain.linearRampToValueAtTime(1.6, time + 0.08);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + dur - 0.02);
+            gain.gain.linearRampToValueAtTime(0, time + dur);
 
             osc1.connect(filter); osc2.connect(filter); filter.connect(dist); dist.connect(gain); gain.connect(masterGain);
-            osc1.start(time); osc2.start(time); osc1.stop(time+dur); osc2.stop(time+dur);
+            osc1.start(time); osc2.start(time); 
+            osc1.stop(time + dur); osc2.stop(time + dur);
         }
 
         function synthSubBass(freq, time, dur) {
@@ -195,20 +199,19 @@
             const dist = offlineCtx.createWaveShaper();
             
             osc.type = 'sine';
-            // Glide mantığı (Portamento simülasyonu)
-            osc.frequency.setValueAtTime(freq * 1.5, time); 
-            osc.frequency.exponentialRampToValueAtTime(freq, time + 0.1);
+            osc.frequency.setValueAtTime(freq * 1.4, time); 
+            osc.frequency.exponentialRampToValueAtTime(freq, time + 0.08);
 
-            dist.curve = distEarrape; // Ezici Sub
-            gain.gain.setValueAtTime(3.0, time); // Aşırı yüksek
-            gain.gain.linearRampToValueAtTime(1.0, time + 0.2); // Sidechain taklidi
-            gain.gain.exponentialRampToValueAtTime(0.001, time + dur);
+            dist.curve = distEarrape; 
+            gain.gain.setValueAtTime(3.5, time); 
+            gain.gain.linearRampToValueAtTime(1.2, time + 0.15); 
+            gain.gain.exponentialRampToValueAtTime(0.001, time + dur - 0.02);
+            gain.gain.linearRampToValueAtTime(0, time + dur);
 
             osc.connect(dist); dist.connect(gain); gain.connect(masterGain);
-            osc.start(time); osc.stop(time+dur);
+            osc.start(time); osc.stop(time + dur);
         }
 
-        // 3.3 LEADS & MELODIES
         function synthPhonkBell(freq, time, type="dark") {
             const osc1 = offlineCtx.createOscillator();
             const mod = offlineCtx.createOscillator();
@@ -223,19 +226,22 @@
                 mod.frequency.setValueAtTime(freq * 2.48, time); 
                 modGain.gain.setValueAtTime(freq * 0.9, time);
                 dist.curve = distEarrape;
-            } else { // "Sharp" variant
+            } else {
                 mod.frequency.setValueAtTime(freq * 3.12, time); 
-                modGain.gain.setValueAtTime(freq * 1.2, time);
+                modGain.gain.setValueAtTime(freq * 1.3, time);
                 dist.curve = distHeavy;
             }
 
             mod.connect(modGain); modGain.connect(osc1.frequency);
             
-            gain.gain.setValueAtTime(2.5, time);
-            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.4);
+            gain.gain.setValueAtTime(2.8, time);
+            gain.gain.exponentialRampToValueAtTime(0.001, time + 0.38);
+            gain.gain.linearRampToValueAtTime(0, time + 0.4);
 
             osc1.connect(dist); dist.connect(gain); gain.connect(masterGain);
-            osc1.start(time); mod.start(time); osc1.stop(time+0.5); mod.stop(time+0.5);
+            
+            osc1.start(time); mod.start(time); 
+            osc1.stop(time + 0.4); mod.stop(time + 0.4);
         }
 
         function synthBrass(freq, time, dur) {
@@ -247,27 +253,28 @@
             
             filter.type = 'lowpass';
             filter.frequency.setValueAtTime(200, time);
-            filter.frequency.exponentialRampToValueAtTime(3000, time + 0.05); // Hızlı brass açılışı
-            filter.frequency.exponentialRampToValueAtTime(200, time + dur);
+            filter.frequency.exponentialRampToValueAtTime(2800, time + 0.06); 
+            filter.frequency.exponentialRampToValueAtTime(250, time + dur);
             
             gain.gain.setValueAtTime(0, time);
-            gain.gain.linearRampToValueAtTime(1.0, time + 0.02);
-            gain.gain.exponentialRampToValueAtTime(0.01, time + dur);
+            gain.gain.linearRampToValueAtTime(1.2, time + 0.03);
+            gain.gain.exponentialRampToValueAtTime(0.01, time + dur - 0.02);
+            gain.gain.linearRampToValueAtTime(0, time + dur);
 
             osc.connect(filter); filter.connect(gain); gain.connect(masterGain);
-            osc.start(time); osc.stop(time+dur);
+            osc.start(time); osc.stop(time + dur);
         }
 
-        // --- 4. MUSIC THEORY & ARRANGEMENT ALGORITHM ---
+        // --- ARANJMAN MOTORU ---
         const scales = {
-            phrygian: [65.41, 69.30, 77.78, 87.31, 98.00, 103.83, 116.54] // C Phrygian (Çok Karanlık)
+            phrygian: [65.41, 69.30, 77.78, 87.31, 98.00, 103.83, 116.54] 
         };
         
         function arrangeTrack() {
-            log("Yapay Zeka Aranjman Motoru Başlatıldı...");
+            log("Yapay Zeka Aranjman Motoru Çalışıyor...");
             const root = scales.phrygian;
             const totalSteps = Math.floor(DURATION / STEP_TIME);
-            let section = 0; // 0:Intro, 1:Build, 2:Drop, 3:Break, 4:Drop2, 5:Outro
+            let section = 0; 
             let currentBassFreq = root[0];
             let melodySeed = [root[3]*4, null, root[0]*4, null, root[1]*4, root[0]*4, null, root[3]*4];
             
@@ -275,9 +282,7 @@
                 let time = step * STEP_TIME;
                 let measure = Math.floor(step / 16);
                 let step16 = step % 16;
-                let step32 = (step % 8 === 0) ? true : false; // Sub-divisions
 
-                // Structure Logic
                 if(measure === 0 && step16 === 0) { section = 0; log("SECTION: INTRO"); synthImpact(time); }
                 if(measure === 8 && step16 === 0) { section = 1; log("SECTION: BUILD-UP"); }
                 if(measure === 16 && step16 === 0) { section = 2; log("SECTION: DROP 1 (EZİCİ)"); synthImpact(time); }
@@ -285,65 +290,57 @@
                 if(measure === 40 && step16 === 0) { section = 4; log("SECTION: DROP 2 (KAOS)"); synthImpact(time); }
                 if(measure === 56 && step16 === 0) { section = 5; log("SECTION: OUTRO"); }
 
-                // Harmony Progression (Her 4 ölçüde değişir)
                 if(measure % 4 === 0 && step16 === 0) {
                     const changes = [root[0], root[5], root[3], root[0]];
                     currentBassFreq = changes[(measure / 4) % 4];
                 }
 
-                // 4.1 DRUM PROGRAMMING
-                if(section === 2 || section === 4) { // DROPS
-                    // Kicks
+                // DROPS
+                if(section === 2 || section === 4) {
                     if(step16 === 0 || step16 === 6 || step16 === 11) synthKick(time, "808");
-                    if(step16 === 0) synthKick(time, "punch"); // Layering
-                    
-                    // Snares
+                    if(step16 === 0) synthKick(time, "punch"); 
                     if(step16 === 4 || step16 === 12) synthSnare(time, "trap");
-                    if(step16 === 15 && Math.random()>0.5) synthSnare(time, "phonk"); // Ghost snare
+                    if(step16 === 15 && Math.random() > 0.5) synthSnare(time, "phonk"); 
                     
-                    // Hats (Complex Trap Rolls)
-                    if(Math.random() > 0.85) { // 32nd roll
-                        synthHat(time); synthHat(time + STEP_TIME/2);
+                    if(Math.random() > 0.82) { 
+                        synthHat(time); synthHat(time + STEP_TIME / 2);
                     } else if(step16 % 2 === 0) {
                         synthHat(time, step16 === 14);
                     }
                     
-                    // Bassline (808 Sub + Reese layer)
                     if(step16 === 0 || step16 === 6 || step16 === 11) {
-                        synthSubBass(currentBassFreq, time, 0.6);
+                        synthSubBass(currentBassFreq, time, 0.58);
                     }
                 }
 
-                if(section === 1) { // BUILD UP
+                // BUILD UP
+                if(section === 1) {
                     if(step16 % 4 === 0) synthKick(time, "punch");
-                    if(measure === 15 && step16 === 0) synthRiser(time, 4); // Riser exactly before drop
-                    if(measure >= 14 && step16 % 2 === 0) synthSnare(time, "trap"); // Snare roll
+                    if(measure === 15 && step16 === 0) synthRiser(time, 4); 
+                    if(measure >= 14 && step16 % 2 === 0) synthSnare(time, "trap"); 
                 }
 
-                if(section === 3) { // BREAKDOWN
-                    if(step16 === 0) synthReeseBass(currentBassFreq, time, 2.0); // Uzun karanlık bas
+                // BREAKDOWN
+                if(section === 3) {
+                    if(step16 === 0) synthReeseBass(currentBassFreq, time, 1.9); 
                     if(step16 % 8 === 0) synthHat(time, true);
                 }
 
-                // 4.2 MELODY PROGRAMMING (Cowbells & Brass)
+                // MELODIES & BRASS
                 if(section !== 3 && section !== 5) {
                     let note = melodySeed[step16 % 8];
                     if(note) {
-                        let type = (section === 4) ? "sharp" : "dark"; // İkinci dropta tını değişir
+                        let type = (section === 4) ? "sharp" : "dark"; 
                         synthPhonkBell(note, time, type);
                     }
-                    // Arada bir Brass vur (Drift tarzı)
-                    if(step16 === 0 && Math.random() > 0.5) synthBrass(currentBassFreq * 4, time, 0.5);
+                    if(step16 === 0 && Math.random() > 0.45) synthBrass(currentBassFreq * 4, time, 0.45);
                 }
             }
-            log("Aranjman Tamamlandı. Çıktı Süresi: " + DURATION + " saniye.");
+            log("Aranjman Tamamlandı. İşlemci Buffer Havuzuna Aktarılıyor...");
         }
 
-        // --- 5. RENDER & WAV EXPORT ENGINE ---
-        
-        // Saf JS ile WAV Header oluşturucu
+        // --- WAV COMPILER AUDIO CONTEXT ---
         function bufferToWav(abuffer) {
-            log("Ham AudioBuffer'dan RIFF/WAV formatına encode ediliyor...", "normal");
             let numOfChan = abuffer.numberOfChannels,
                 length = abuffer.length * numOfChan * 2 + 44,
                 buffer = new ArrayBuffer(length),
@@ -351,92 +348,94 @@
                 channels = [], i, sample,
                 offset = 0, pos = 0;
 
-            function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
             function setUint32(data) { view.setUint32(pos, data, true); pos += 4; }
+            function setUint16(data) { view.setUint16(pos, data, true); pos += 2; }
 
-            setUint32(0x46464952); // "RIFF"
-            setUint32(length - 8); // file length - 8
-            setUint32(0x45564157); // "WAVE"
-            setUint32(0x20746d66); // "fmt " chunk
-            setUint32(16); // length = 16
-            setUint16(1); // PCM (uncompressed)
+            setUint32(0x46464952); 
+            setUint32(length - 8); 
+            setUint32(0x45564157); 
+            setUint32(0x20746d66); 
+            setUint32(16); 
+            setUint16(1); 
             setUint16(numOfChan);
             setUint32(abuffer.sampleRate);
-            setUint32(abuffer.sampleRate * 2 * numOfChan); // avg. bytes/sec
-            setUint16(numOfChan * 2); // block-align
-            setUint16(16); // 16-bit
-            setUint32(0x61746164); // "data" - chunk
-            setUint32(length - pos - 4); // chunk length
+            setUint32(abuffer.sampleRate * 2 * numOfChan); 
+            setUint16(numOfChan * 2); 
+            setUint16(16); 
+            setUint32(0x61746164); 
+            setUint32(length - pos - 4); 
 
             for(i = 0; i < abuffer.numberOfChannels; i++) channels.push(abuffer.getChannelData(i));
 
             while(pos < length) {
                 for(i = 0; i < numOfChan; i++) {
-                    sample = Math.max(-1, Math.min(1, channels[i][offset])); // Hard clipping koruması
+                    sample = Math.max(-1, Math.min(1, channels[i][offset])); 
                     sample = (0.5 + sample < 0 ? sample * 32768 : sample * 32767)|0;
                     view.setInt16(pos, sample, true);
                     pos += 2;
                 }
                 offset++;
             }
-            log("WAV Encoding Başarılı.", "success");
             return buffer;
         }
 
-        async function startRender() {
+        function startRender() {
             const btn = document.getElementById('renderBtn');
             btn.disabled = true;
-            btn.innerText = "DERLENİYOR... LÜTFEN BEKLEYİN!";
-            document.getElementById('console').innerHTML = ''; // Temizle
+            btn.innerText = "DERLENİYOR... BEKLEYİN!";
+            document.getElementById('console').innerHTML = ''; 
             
-            try {
-                log(`OfflineAudioContext Başlatılıyor (${SAMPLE_RATE}Hz, ${DURATION}s)...`);
-                offlineCtx = new OfflineAudioContext(2, SAMPLE_RATE * DURATION, SAMPLE_RATE);
-                
-                // Mastering Zinciri
-                masterGain = offlineCtx.createGain();
-                masterGain.gain.value = 0.9;
-                
-                dcBlocker = offlineCtx.createBiquadFilter();
-                dcBlocker.type = 'highpass'; dcBlocker.frequency.value = 20;
-
-                compressor = offlineCtx.createDynamicsCompressor();
-                compressor.threshold.value = -12;
-                compressor.ratio.value = 12; // Brickwall limiter
-                compressor.attack.value = 0.003;
-
-                masterGain.connect(dcBlocker); dcBlocker.connect(compressor); compressor.connect(offlineCtx.destination);
-
-                arrangeTrack();
-
-                log("İşlemciye gönderildi. Rendering başlıyor (Bu işlem sekmeni birkaç saniye dondurabilir)...");
-                
-                // Gecikme vererek UI'ın güncellenmesini sağla, ardından ağır işleme başla
-                setTimeout(async () => {
-                    const renderedBuffer = await offlineCtx.startRendering();
-                    log("Render Başarılı! Bellek boyutu işleniyor...", "success");
+            setTimeout(() => {
+                try {
+                    log(`OfflineAudioContext Başlatılıyor (${SAMPLE_RATE}Hz)...`);
+                    offlineCtx = new OfflineAudioContext(2, SAMPLE_RATE * DURATION, SAMPLE_RATE);
                     
-                    const wavData = bufferToWav(renderedBuffer);
-                    const blob = new Blob([wavData], { type: 'audio/wav' });
-                    const url = URL.createObjectURL(blob);
+                    masterGain = offlineCtx.createGain();
+                    masterGain.gain.value = 0.85;
                     
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `EXCALIBUR_PHONK_${Date.now()}.wav`;
-                    document.body.appendChild(a);
-                    a.click();
-                    document.body.removeChild(a);
+                    dcBlocker = offlineCtx.createBiquadFilter();
+                    dcBlocker.type = 'highpass'; dcBlocker.frequency.value = 22;
 
-                    log(`DOSYA İNDİRİLDİ: ${a.download}`, "success");
-                    btn.innerText = "YENİDEN OLUŞTUR VE İNDİR";
+                    compressor = offlineCtx.createDynamicsCompressor();
+                    compressor.threshold.value = -14;
+                    compressor.ratio.value = 16; 
+                    compressor.attack.value = 0.002;
+
+                    masterGain.connect(dcBlocker); dcBlocker.connect(compressor); compressor.connect(offlineCtx.destination);
+
+                    arrangeTrack();
+
+                    log("Rendering motoru asenkron döngüye girdi, WAV derleniyor...");
+                    
+                    offlineCtx.startRendering().then((renderedBuffer) => {
+                        log("Sentez Başarılı! Binary veriler paketleniyor...", "success");
+                        
+                        const wavData = bufferToWav(renderedBuffer);
+                        const blob = new Blob([wavData], { type: 'audio/wav' });
+                        const url = URL.createObjectURL(blob);
+                        
+                        const a = document.createElement('a');
+                        a.href = url;
+                        a.download = `EXCALIBUR_PHONK_FIXED_${Date.now()}.wav`;
+                        document.body.appendChild(a);
+                        a.click();
+                        document.body.removeChild(a);
+
+                        log(`İŞLEM TAMAMLANDI: ${a.download}`, "success");
+                        btn.innerText = "YENİDEN DERLE VE İNDİR";
+                        btn.disabled = false;
+                    }).catch((renderErr) => {
+                        log(`Render Kilitlenme Hatası: ${renderErr.message}`, "error");
+                        btn.innerText = "HATA OLUŞTU";
+                        btn.disabled = false;
+                    });
+
+                } catch (err) {
+                    log(`Sistem Hatası: ${err.message}`, "error");
+                    btn.innerText = "HATA OLUŞTU";
                     btn.disabled = false;
-                }, 100);
-
-            } catch (err) {
-                log(`Sistem Hatası: ${err.message}`, "error");
-                btn.innerText = "BİR HATA OLUŞTU";
-                btn.disabled = false;
-            }
+                }
+            }, 200); // UI'ın donmadan önce "Derleniyor" yazmasını garantiye alan gecikme havuzu
         }
     </script>
 </body>
